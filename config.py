@@ -119,8 +119,8 @@ class Config:
                         raise ValueError(f"Missing required field '{field}'")
 
                 cam_path = cam_cfg['camera']
-                if not isinstance(cam_path, str):
-                    raise TypeError("'camera' must be a string")
+                if not isinstance(cam_path, str) and not isinstance(cam_path, int):
+                    raise TypeError("'camera' must be a string or int")
                 cap = cv2.VideoCapture(cam_path)
                 if not cap.isOpened():
                     raise ValueError(f"Cannot open camera device '{cam_path}'")

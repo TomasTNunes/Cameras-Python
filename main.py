@@ -22,7 +22,7 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
         )
         camera_stop_event = threading.Event()
         camera_thread = threading.Thread(
-            target=CAMERA.frame_reader_thread,
+            target=CAMERA.start,
             args=(camera_stop_event,),
             daemon=True
         )

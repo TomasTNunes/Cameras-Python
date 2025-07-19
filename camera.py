@@ -31,17 +31,22 @@ class CameraReader:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        # Initialize frame queue
-        max_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
-        self.frame_queue = Queue(maxsize=max_queue_size)
+        # Initialize stream frames queue
+        max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
+        self.stream_frame_queue = Queue(maxsize=max_stream_queue_size)
 
         # Initialize StreamServer Class Module and Thread
-        self.stream_server = StreamServer(camera_name, self.frame_queue, port)
+        self.stream_server = StreamServer(camera_name, self.stream_frame_queue, port)
         self.stream_thread = threading.Thread(target=self.stream_server.start, daemon=True)
+
+        # Initialize motion frames queue
+        max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
+        self.motion_frame_queue = Queue(maxsize=max_motion_queue_size)
     
-    def frame_reader_thread(self, camera_stop_event: threading.Event):
+    def start(self, camera_stop_event: threading.Event):
         """
-        Reads all frames from the camera, but only feeds the targeted frames to the processing and stream modules.
+        Reads all frames from the camera, but only feeds the targeted frames to the processing and stream modules (respective queues).
+        Starts Stream Thread and Motion Process.
         Uses time-based throttling.
         """
         logger.info(f"Starting camera {self.camera_name} frame reader thread.")
@@ -63,9 +68,11 @@ class CameraReader:
 
                 # Push frame to stream queue
                 try:
-                    self.frame_queue.put_nowait(frame)
+                    self.stream_frame_queue.put_nowait(frame)
                 except:
-                    pass  # Drop frame if queue is full
+                    pass  # Drop frame if queue is full 
+                          # (Might be a good idea to relpace frame by oldest instead of dropping it, 
+                          # should reduce latency build up in spike scenarios)
             
             time.sleep(0.005)  # Sleep 5ms to prevent high CPU usage (for 30 fps camera new frames are available every ~33ms)
 
