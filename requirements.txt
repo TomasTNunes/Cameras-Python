@@ -1,0 +1,4 @@
+# Python version used to develop: "Python 3.12.11"
+opencv-python==4.12.0.88
+PyYAML==6.0.2
+Flask==3.1.1
