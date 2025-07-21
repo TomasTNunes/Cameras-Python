@@ -64,7 +64,7 @@ class Config:
             raise TypeError("'save' in Logs config must be a boolean")
 
         if not save_flag:
-            logger.info("Logs saving is disabled.")
+            logger.warning("Logs saving is disabled.")
             return
         
         log_dir = logs_cfg.get('directory')
@@ -82,7 +82,9 @@ class Config:
 
         self.check_create_directory(log_dir)
         setup_logger_file(log_dir, max_size, max_files)
-        logger.info('Application Initiated.') # first log to be written in log file after StartUp, if logs saving is enabled
+        logger.info('----------------------------------------------------------------------') # first log to be written in log file after StartUp, if logs saving is enabled
+        logger.info('---------------------- Application Initiated -------------------------')
+        logger.info('----------------------------------------------------------------------')
         logger.info('Logs saving is enabled.')
     
     @staticmethod
@@ -166,7 +168,7 @@ class Config:
         self._recordings['save'] = save_flag
 
         if not save_flag:
-            logger.info("Cameras recordings are disabled.")
+            logger.warning("Cameras recordings are disabled.")
         else:
             rec_dir = rec_cfg.get('directory')
             max_days = rec_cfg.get('max_days_to_save')
