@@ -22,6 +22,9 @@ class CameraReader:
         self.target_fps = target_fps
         self.target_frame_interval = 1.0 / target_fps
 
+        # Camera Thread Stop event
+        self.camera_stop_event = threading.Event()
+
         # Initialize camera capture
         self.cap = cv2.VideoCapture(camera)
         if not self.cap.isOpened():
@@ -39,7 +42,7 @@ class CameraReader:
         max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
         self.motion_frame_queue = Queue(maxsize=max_motion_queue_size)
     
-    def start(self, camera_stop_event: threading.Event):
+    def start(self):
         """
         Reads all frames from the camera, but only feeds the targeted frames to the processing and stream modules (respective queues).
         Starts Stream Thread and Motion Process.
@@ -49,7 +52,7 @@ class CameraReader:
         self.stream_thread.start() # Start streaming thread
         last_display_time = time.time()
 
-        while not camera_stop_event.is_set():
+        while not self.camera_stop_event.is_set():
             # Read frame from camera
             ret, frame = self.cap.read()
             if not ret:
@@ -60,7 +63,7 @@ class CameraReader:
             # Time-based throttling
             if now - last_display_time >= self.target_frame_interval:
                 last_display_time = now
-                frame = self.draw_frame_info(frame)
+                frame = self._draw_frame_info(frame)
 
                 # Write raw frame to stream server queue
                 self.stream_server.write(frame)
@@ -68,9 +71,15 @@ class CameraReader:
             time.sleep(0.005)  # Sleep 5ms to prevent high CPU usage (for 30 fps camera new frames are available every ~33ms)
 
         # Close camera and release resources
-        self.close_camera_reader()
+        self._close_camera_reader()
+    
+    def stop(self):
+        """
+        Stops the camera reader thread, and child threads (stream, motion, etc).
+        """
+        self.camera_stop_event.set()
 
-    def close_camera_reader(self):
+    def _close_camera_reader(self):
         """
         Releases the camera and closes correspondant OpenCV windows.
         """
@@ -78,7 +87,7 @@ class CameraReader:
             self.cap.release()
             logger.info(f"Camera {self.camera_name} released.")
 
-    def draw_frame_info(self, frame):
+    def _draw_frame_info(self, frame):
         """
         Draws the date and time (with milliseconds) in the bottom-right corner,
         and the camera name in the top-left corner, styled like a vigilance system.

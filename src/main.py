@@ -20,14 +20,12 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             target_fps=cam_cfg['target_fps'],
             port=cam_cfg['port']
         )
-        camera_stop_event = threading.Event()
         camera_thread = threading.Thread(
             target=CAMERA.start,
-            args=(camera_stop_event,),
             daemon=True
         )
         camera_thread.start()
-        CAMERAS[cam_id] = (CAMERA, camera_thread, camera_stop_event)
+        CAMERAS[cam_id] = (CAMERA, camera_thread)
     except Exception as e:
         logger.error(f"{e}")
 
@@ -37,9 +35,9 @@ while True:
     command = input()
     if command=='exit' or command=='q':
         logger.info("Manually closing all cameras.")
-        for cam_id, (_, _, stop_event) in CAMERAS.items():
-            stop_event.set()
-        for cam_id, (_, thread, _) in CAMERAS.items():
+        for cam_id, (cam, _) in CAMERAS.items():
+            cam.stop()
+        for cam_id, (_, thread) in CAMERAS.items():
             thread.join()
         break
 

@@ -16,12 +16,12 @@ class Config:
         Initializes the Config class with the path to the configuration file.
         """
         self.config_file = config_file
-        self.config = self.load_config()
+        self.config = self._load_config()
         logger.info('Config File Loaded.')
-        self.configure_logger()
+        self._configure_logger()
         self._cameras = {}
         self._recordings = {}
-        self.validate_config()
+        self._validate_config()
     
     @property
     def cameras(self):
@@ -37,7 +37,7 @@ class Config:
         """
         return MappingProxyType(self._recordings)
 
-    def load_config(self):
+    def _load_config(self):
         """
         Load the configuration from the YAML file.
         """
@@ -48,7 +48,7 @@ class Config:
                 logger.error(f"Error loading configuration file: {e}")
                 raise(f"Error loading configuration file: {e}")
                 
-    def configure_logger(self):
+    def _configure_logger(self):
         """
         Configure the logger based on the loaded configuration.
         Validates Logs configuration from cofig file.
@@ -100,7 +100,7 @@ class Config:
                 logger.error(f"Error creating directory {directory}: {e}")
                 raise(f"Error creating directory {directory}: {e}")
     
-    def validate_config(self):
+    def _validate_config(self):
         """
         Validate the configuration from cofig file.
         """
