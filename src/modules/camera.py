@@ -23,7 +23,7 @@ class CameraReader:
         self.target_frame_interval = 1.0 / target_fps
 
         # Camera Thread Stop event
-        self.camera_stop_event = threading.Event()
+        self._camera_stop_event = threading.Event()
 
         # Initialize camera capture
         self.cap = cv2.VideoCapture(camera)
@@ -52,7 +52,7 @@ class CameraReader:
         self.stream_thread.start() # Start streaming thread
         last_display_time = time.time()
 
-        while not self.camera_stop_event.is_set():
+        while not self._camera_stop_event.is_set():
             # Read frame from camera
             ret, frame = self.cap.read()
             if not ret:
@@ -77,7 +77,7 @@ class CameraReader:
         """
         Stops the camera reader thread, and child threads (stream, motion, etc).
         """
-        self.camera_stop_event.set()
+        self._camera_stop_event.set()
 
     def _close_camera_reader(self):
         """
