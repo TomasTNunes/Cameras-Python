@@ -11,20 +11,36 @@ class StreamServer:
     Designed to be used with Flask for web streaming.
     """
 
-    def __init__(self, camera_name: str, frame_queue: Queue, port: int):
+    def __init__(self, camera_name: str, port: int):
         """
         Initializes the StreamServer with required parameters.
         """
         self.camera_name = camera_name
-        self.frame_queue = frame_queue
         self.port = port
+
+        # Initialize stream raw frames queue 
+        max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (raw frames are heavy)
+        self.frame_queue = Queue(maxsize=max_stream_queue_size)
+    
+    def write(self, frame: bytes):
+        """
+        Writes a raw frame to the stream queue.
+        If the queue is full, the frame is dropped.
+        """
+        try:
+            self.frame_queue.put_nowait(frame)
+        except:
+            pass  # Drop frame if queue is full 
+                    # (Might be a good idea to relpace frame by oldest instead of dropping it, 
+                    # should reduce latency build up in spike scenarios)
+
 
     def start(self):
         """
         Starts the stream server.
         Run Flask app in a seperate thread.
         """
-        logger.info(f"Starting stream server for {self.camera_name} on port {self.port} (http://{self.get_local_ip()}:{self.port}).")
+        logger.info(f"Starting stream server for {self.camera_name} on port {self.port} (http://{self._get_local_ip()}:{self.port}).")
         app = Flask(__name__)
 
         def generate():
@@ -61,7 +77,7 @@ class StreamServer:
         except Exception as e:
             logger.error(f'Error running flask app for camera {self.camera_name}: {e}')
     
-    def get_local_ip(self):
+    def _get_local_ip(self):
         """
         Returns the local IP address of the machine.
         """
