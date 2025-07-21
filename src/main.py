@@ -1,7 +1,7 @@
 import threading
 from logger_setup import logger
-from config import Config
-from camera import CameraReader
+from modules.config import Config
+from modules.camera import CameraReader
 
 logger.info('Script Running.')
 

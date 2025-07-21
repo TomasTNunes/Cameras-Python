@@ -23,12 +23,12 @@ Cameras:
 Recordings:  
   save: True # Whether to save camera recordings (True/False)
   # following parameters are required only if save is True
-  directory: '/home/tomas/GitHub/Cameras-Python/data/recording' # Directory where camera recordings will be saved 
+  directory: '../data/recording' # Directory where camera recordings will be saved 
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
 
 Logs:
   save: True # Whether to save logs (True/False)
   # following parameters are required only if save is True
-  directory: '/home/tomas/GitHub/Cameras-Python/logs' # Directory where logs will be saved
+  directory: '../logs' # Directory where logs will be saved
   max_size: 1024 # Maximum size of each log file in MB
   max_files: 2 # Maximum number of log files to keep

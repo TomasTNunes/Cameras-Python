@@ -3,7 +3,7 @@ from logger_setup import logger
 import time
 import threading
 from queue import Queue
-from stream import StreamServer
+from modules.stream import StreamServer
 
 class CameraReader:
     """
