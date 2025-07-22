@@ -103,18 +103,10 @@ class Config:
 
         for cam_id, cam_cfg in cameras.items():
             try:
-                required_fields = ['camera', 'name', 'width', 'height', 'target_fps', 'port']
+                required_fields = ['camera', 'name', 'target_fps', 'port']
                 for field in required_fields:
                     if field not in cam_cfg:
                         raise ValueError(f"Missing required field '{field}'")
-
-                cam_path = cam_cfg['camera']
-                if not isinstance(cam_path, str) and not isinstance(cam_path, int):
-                    raise TypeError("'camera' must be a string or int")
-                cap = cv2.VideoCapture(cam_path)
-                if not cap.isOpened():
-                    raise ValueError(f"Cannot open camera device '{cam_path}'")
-                cap.release()
 
                 name = cam_cfg['name']
                 if not isinstance(name, str):
@@ -123,15 +115,62 @@ class Config:
                     raise ValueError(f"Duplicate camera name: '{name}'")
                 seen_names.append(name)
 
-                for field in ['width', 'height', 'target_fps', 'port']:
+                for field in ['target_fps', 'port']:
                     value = cam_cfg[field]
-                    if not isinstance(value, int) or value < 0:
-                        raise ValueError(f"'{field}' must be a non-negative integer")
+                    if not isinstance(value, int) or value <= 0:
+                        raise ValueError(f"'{field}' must be a positive integer")
 
                 port = cam_cfg['port']
                 if port in seen_ports:
                     raise ValueError(f"Duplicate port number: {port}")
                 seen_ports.append(port)
+
+                cam_path = cam_cfg['camera']
+                if not isinstance(cam_path, str) and not isinstance(cam_path, int):
+                    raise TypeError("'camera' must be a string or int")
+                
+                try:
+                    cap = cv2.VideoCapture(cam_path)
+                    if not cap.isOpened():
+                        raise ValueError(f"Cannot open camera device '{cam_path}'")
+                    
+                    # Optional Parameters
+                    if 'source_format' in cam_cfg:
+                        fmt = cam_cfg['source_format']
+                        if not isinstance(fmt, str) or len(fmt) != 4:
+                            raise TypeError("'source_format' must be a 4-character string")
+                        fourcc_code = cv2.VideoWriter_fourcc(*fmt)
+                        cap.set(cv2.CAP_PROP_FOURCC, fourcc_code)
+                        actual_fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
+                        actual_fmt = "".join([chr((actual_fourcc >> 8 * i) & 0xFF) for i in range(4)])
+                        if actual_fmt != fmt:
+                            raise ValueError(f"'source_format' '{fmt}' not supported by camera")
+                    
+                    for dim in ['width', 'height']:
+                        if dim in cam_cfg:
+                            val = cam_cfg[dim]
+                            if not isinstance(val, int) or val <= 0:
+                                raise ValueError(f"'{dim}' must be a positive integer")
+                            prop = cv2.CAP_PROP_FRAME_WIDTH if dim == 'width' else cv2.CAP_PROP_FRAME_HEIGHT
+                            cap.set(prop, val)
+                            actual = int(cap.get(prop))
+                            if actual != val:
+                                raise ValueError(f"'{dim}' '{val}' not supported by camera")
+                    
+                    if 'source_fps' in cam_cfg:
+                        fps = cam_cfg['source_fps']
+                        if not isinstance(fps, int) or fps <= 0:
+                            raise ValueError("'source_fps' must be a positive integer")
+                        cap.set(cv2.CAP_PROP_FPS, fps)
+                        actual_fps = cap.get(cv2.CAP_PROP_FPS)
+                        if actual_fps != fps:
+                            raise ValueError(f"'source_fps' '{fps}' not supported by camera")
+                        if actual_fps < 1:
+                            logger.warning(f"Camera '{name}' may not report FPS correctly (got {actual_fps}). Continuing anyway.")
+                        elif abs(actual_fps - fps) > 1:
+                            raise ValueError(f"'source_fps' '{fps}' not supported by camera")
+                finally:
+                    cap.release()
 
                 self._cameras[cam_id] = cam_cfg
                 self._cameras[cam_id]['normalized_name'] = name.lower().replace(' ', '_')

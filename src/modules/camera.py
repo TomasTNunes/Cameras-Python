@@ -15,7 +15,8 @@ class CameraReader:
     """
 
     def __init__(self, camera_name: str, camera_name_norm: str, camera: str, 
-                 width: int, height: int, target_fps: int, port: int):
+                 target_fps: int, port: int, source_format: str = None,
+                 width: int = None, height: int = None, source_fps: int = None):
         """
         Initializes the CameraReader with camera parameters.
         """
@@ -32,9 +33,14 @@ class CameraReader:
             raise(f"Could not open camera '{camera_name}'({camera}).")
         else:
             logger.info(f"Camera '{camera_name}' opened successfully.")
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
+        if source_format:
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*source_format))
+        if width:
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        if height:
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if source_fps:
+            self.cap.set(cv2.CAP_PROP_FPS, source_fps)
 
         # Initialize StreamServer Class Module and Thread
         self.stream_server = StreamServer(camera_name, camera_name_norm, port)
@@ -50,12 +56,24 @@ class CameraReader:
         Starts Stream Thread and Motion Process.
         Uses time-based throttling.
         """
-        logger.info(f"Starting camera '{self.camera_name}' frame reader thread.")
+        actual_fourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
+        actual_fmt = "".join([chr((actual_fourcc >> 8 * i) & 0xFF) for i in range(4)])
+        source_fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+        logger.info(f"Starting camera '{self.camera_name}' frame reader thread. \
+(Source_Format: {actual_fmt}, Source_FPS: {source_fps}, \
+Target_FPS: {self.target_fps}, Width: {int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}, \
+Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         self.stream_thread.start() # Start streaming thread
         last_display_time = time.time()
 
+        # Compute sleep time based on source FPS
+        if source_fps and source_fps >= 1:
+            sleep_time = 1 / source_fps / 2  # Sleep half the time to allow for processing
+        else:
+            sleep_time = 0.005 # Sleep 5ms (default) to prevent high CPU usage (for 30 fps camera new frames are available every ~33ms)
+        
         while not self._camera_stop_event.is_set():
-            # Read frame from camera
+            # Read frame from camera (always read in BGR, independent from source format)
             ret, frame = self.cap.read()
             if not ret:
                 logger.error(f"Camera '{self.camera_name}' read failed.")
@@ -70,7 +88,7 @@ class CameraReader:
                 # Write raw frame to stream server queue
                 self.stream_server.write(frame)
             
-            time.sleep(0.005)  # Sleep 5ms to prevent high CPU usage (for 30 fps camera new frames are available every ~33ms)
+            time.sleep(sleep_time)  # Sleep to reduce CPU usage
 
         # Close camera and release resources
         self._close_camera_reader()

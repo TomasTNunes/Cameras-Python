@@ -24,10 +24,12 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             camera_name=cam_cfg['name'],
             camera_name_norm=cam_cfg['normalized_name'],
             camera=cam_cfg['camera'],
-            width=cam_cfg['width'],
-            height=cam_cfg['height'],
             target_fps=cam_cfg['target_fps'],
-            port=cam_cfg['port']
+            port=cam_cfg['port'],
+            source_format=cam_cfg.get('source_format', None),
+            width=cam_cfg.get('width', None),
+            height=cam_cfg.get('height', None),
+            source_fps=cam_cfg.get('source_fps', None),
         )
         camera_thread = threading.Thread(
             target=CAMERA.start,

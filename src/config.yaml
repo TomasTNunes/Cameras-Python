@@ -5,10 +5,13 @@ Cameras:
   camera1: # camera id
     camera: '/dev/video0' # Camera device path
     name: 'Laptop' # Name of the camera
-    width: 640 # Width of the video stream (has to be supported by camera)
-    height: 480 # Height of the video stream (has to be supported by camera)
     target_fps: 15 # Target frames per second for the video stream (set it lower than the camera's maximum FPS)
     port: 50000 # Port for the stream server to stream video
+    # following parameters are not mandatory, if not set OpenCV will use default values
+    source_format: 'MJPG' # Video pixel format, e.g. 'MJPG' or 'YUYV' (has to be supported by camera)
+    width: 640 # Width of the video stream (has to be supported by camera)
+    height: 480 # Height of the video stream (has to be supported by camera)
+    source_fps: 30 # Actual FPS to read from camera (has to be supported by camera)
 
   camera2:
     camera: '/dev/video4'
