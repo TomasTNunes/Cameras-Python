@@ -16,8 +16,6 @@ Cameras:
   camera2:
     camera: '/dev/video4'
     name: 'Front Door'
-    width: 640
-    height: 480
     target_fps: 15
     port: 50001
   
