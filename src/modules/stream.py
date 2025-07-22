@@ -3,20 +3,29 @@ from flask import Flask, Response
 import cv2
 from logger_setup import logger
 import socket
+from modules.recording import RecordingManager
+import threading
 
 class StreamServer:
     """
     Stream Module Class.
     Handles streaming of frames from the camera to a specified port.
     Designed to be used with Flask for web streaming.
+    Feeds encoded frames to RecordingManager Module.
     """
 
-    def __init__(self, camera_name: str, port: int):
+    def __init__(self, camera_name: str, camera_name_norm: str, port: int):
         """
         Initializes the StreamServer with required parameters.
         """
         self.camera_name = camera_name
         self.port = port
+
+        # RecordingManager Class Module and Thread
+        self.recorder = RecordingManager(camera_name, camera_name_norm)
+        if self.recorder.save_recording:
+            self.recorder_thread = threading.Thread(target=self.recorder.start, daemon=True)
+
 
         # Initialize stream raw frames queue 
         max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (raw frames are heavy)

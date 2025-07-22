@@ -14,7 +14,8 @@ class CameraReader:
     Designed to be used with OpenCV.
     """
 
-    def __init__(self, camera_name: str, camera: str, width: int, height: int, target_fps: int, port: int):
+    def __init__(self, camera_name: str, camera_name_norm: str, camera: str, 
+                 width: int, height: int, target_fps: int, port: int):
         """
         Initializes the CameraReader with camera parameters.
         """
@@ -28,19 +29,20 @@ class CameraReader:
         # Initialize camera capture
         self.cap = cv2.VideoCapture(camera)
         if not self.cap.isOpened():
-            raise(f"Could not open camera {camera_name}({camera}).")
+            raise(f"Could not open camera '{camera_name}'({camera}).")
         else:
-            logger.info(f"Camera {camera_name} opened successfully.")
+            logger.info(f"Camera '{camera_name}' opened successfully.")
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
+
         # Initialize StreamServer Class Module and Thread
-        self.stream_server = StreamServer(camera_name, port)
+        self.stream_server = StreamServer(camera_name, camera_name_norm, port)
         self.stream_thread = threading.Thread(target=self.stream_server.start, daemon=True)
 
         # Initialize motion frames queue
-        max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
-        self.motion_frame_queue = Queue(maxsize=max_motion_queue_size)
+        # max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
+        # self.motion_frame_queue = Queue(maxsize=max_motion_queue_size)
     
     def start(self):
         """
@@ -48,7 +50,7 @@ class CameraReader:
         Starts Stream Thread and Motion Process.
         Uses time-based throttling.
         """
-        logger.info(f"Starting camera {self.camera_name} frame reader thread.")
+        logger.info(f"Starting camera '{self.camera_name}' frame reader thread.")
         self.stream_thread.start() # Start streaming thread
         last_display_time = time.time()
 
@@ -56,7 +58,7 @@ class CameraReader:
             # Read frame from camera
             ret, frame = self.cap.read()
             if not ret:
-                logger.error(f"Camera {self.camera_name} read failed.")
+                logger.error(f"Camera '{self.camera_name}' read failed.")
                 break
             now = time.time()
             
@@ -85,7 +87,7 @@ class CameraReader:
         """
         if self.cap.isOpened():
             self.cap.release()
-            logger.info(f"Camera {self.camera_name} released.")
+            logger.info(f"Camera '{self.camera_name}' released.")
 
     def _draw_frame_info(self, frame):
         """

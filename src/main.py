@@ -2,11 +2,19 @@ import threading
 from logger_setup import logger
 from modules.config import Config
 from modules.camera import CameraReader
+from modules.recording import RecordingManager
 
 logger.info('Script Running.')
 
 # Load Config from config file
 CONFIG = Config(config_file='config.yaml')
+
+# Set RecordingManager Class Config
+RecordingManager.setClassConfig(
+    save_recording=CONFIG.recordings['save'],
+    output_dir=CONFIG.recordings.get('directory', None),
+    max_days_to_save=CONFIG.recordings.get('max_days_to_save', None)
+)
 
 # Initialize Cameras from Config
 CAMERAS = {}
@@ -14,6 +22,7 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
     try:
         CAMERA = CameraReader(
             camera_name=cam_cfg['name'],
+            camera_name_norm=cam_cfg['normalized_name'],
             camera=cam_cfg['camera'],
             width=cam_cfg['width'],
             height=cam_cfg['height'],

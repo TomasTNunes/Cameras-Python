@@ -3,6 +3,7 @@ import os
 import cv2
 from types import MappingProxyType
 from logger_setup import setup_logger_file, logger
+from utils import check_create_directory
 
 class Config:
     """
@@ -80,25 +81,12 @@ class Config:
         if not isinstance(max_files, int) or max_files < 1:
             raise ValueError("'max_files' must be an integer >= 1.")
 
-        self.check_create_directory(log_dir)
+        check_create_directory(log_dir)
         setup_logger_file(log_dir, max_size, max_files)
         logger.info('----------------------------------------------------------------------') # first log to be written in log file after StartUp, if logs saving is enabled
         logger.info('---------------------- Application Initiated -------------------------')
         logger.info('----------------------------------------------------------------------')
         logger.info('Logs saving is enabled.')
-    
-    @staticmethod
-    def check_create_directory(directory: str):
-        """
-        Check if the directory exists, if not, create it.
-        """
-        if not os.path.exists(directory):
-            try:
-                os.makedirs(directory)
-                logger.info(f'Directory {directory} created.')
-            except OSError as e:
-                logger.error(f"Error creating directory {directory}: {e}")
-                raise(f"Error creating directory {directory}: {e}")
     
     def _validate_config(self):
         """
@@ -181,7 +169,7 @@ class Config:
                 logger.error("'max_days_to_save' must be an integer >= 1")
                 raise ValueError("'max_days_to_save' must be an integer >= 1")
 
-            self.check_create_directory(rec_dir)
+            check_create_directory(rec_dir)
             self._recordings['directory'] = rec_dir
             self._recordings['max_days_to_save'] = max_days
             logger.info("Cameras recordings are enabled.")

@@ -3,16 +3,16 @@ Cameras:
   # Cameras configurations (all parameters in each camera must be defined)
 
   camera1: # camera id
-    camera: '/dev/video5' # Camera device path
-    name: 'Front Door' # Name of the camera
+    camera: '/dev/video0' # Camera device path
+    name: 'Laptop' # Name of the camera
     width: 640 # Width of the video stream (has to be supported by camera)
     height: 480 # Height of the video stream (has to be supported by camera)
     target_fps: 15 # Target frames per second for the video stream (set it lower than the camera's maximum FPS)
     port: 50000 # Port for the stream server to stream video
 
   camera2:
-    camera: '/dev/video0'
-    name: 'Laptop'
+    camera: '/dev/video4'
+    name: 'Front Door'
     width: 640
     height: 480
     target_fps: 15
@@ -24,11 +24,13 @@ Recordings:
   save: True # Whether to save camera recordings (True/False)
   # following parameters are required only if save is True
   directory: '../data/recording' # Directory where camera recordings will be saved 
+                                 # (absolute path or relative path to where the script is being run from)
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
 
 Logs:
   save: True # Whether to save logs (True/False)
   # following parameters are required only if save is True
   directory: '../logs' # Directory where logs will be saved
+                       # (absolute path or relative path to where the script is being run from)
   max_size: 1024 # Maximum size of each log file in MB
   max_files: 2 # Maximum number of log files to keep
