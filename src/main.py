@@ -31,12 +31,8 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             height=cam_cfg.get('height', None),
             source_fps=cam_cfg.get('source_fps', None),
         )
-        camera_thread = threading.Thread(
-            target=CAMERA.start,
-            daemon=True
-        )
-        camera_thread.start()
-        CAMERAS[cam_id] = (CAMERA, camera_thread)
+        CAMERA.start()
+        CAMERAS[cam_id] = CAMERA
     except Exception as e:
         logger.error(f"{e}")
 
@@ -46,9 +42,7 @@ while True:
     command = input()
     if command=='exit' or command=='q':
         logger.info("Manually closing all cameras.")
-        for cam_id, (cam, _) in CAMERAS.items():
+        for cam_id, cam in CAMERAS.items():
             cam.stop()
-        for cam_id, (_, thread) in CAMERAS.items():
-            thread.join()
         break
 

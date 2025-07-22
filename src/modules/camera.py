@@ -24,7 +24,11 @@ class CameraReader:
         self.target_fps = target_fps
         self.target_frame_interval = 1.0 / target_fps
 
-        # Camera Thread Stop event
+        # Camera Thread Parameters
+        self._camera_thread = threading.Thread(
+            target=self._run,
+            daemon=True
+        )
         self._camera_stop_event = threading.Event()
 
         # Initialize camera capture
@@ -44,7 +48,6 @@ class CameraReader:
 
         # Initialize StreamServer Class Module and Thread
         self.stream_server = StreamServer(camera_name, camera_name_norm, port)
-        self.stream_thread = threading.Thread(target=self.stream_server.start, daemon=True)
 
         # Initialize motion frames queue
         # max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
@@ -52,6 +55,21 @@ class CameraReader:
     
     def start(self):
         """
+        Starts the camera reader thread.
+        """
+        self._camera_thread.start()
+    
+    def stop(self):
+        """
+        Stops the camera reader thread, and child threads (stream, motion, etc).
+        """
+        self._camera_stop_event.set()
+        self._camera_thread.join()
+        logger.info(f"Camera '{self.camera_name}' thread stopped.")
+    
+    def _run(self):
+        """
+        To be ran in a separate thread.
         Reads all frames from the camera, but only feeds the targeted frames to the processing and stream modules (respective queues).
         Starts Stream Thread and Motion Process.
         Uses time-based throttling.
@@ -63,7 +81,7 @@ class CameraReader:
 (Source_Format: {actual_fmt}, Source_FPS: {source_fps}, \
 Target_FPS: {self.target_fps}, Width: {int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}, \
 Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
-        self.stream_thread.start() # Start streaming thread
+        self.stream_server.start() # Start streaming thread
         last_display_time = time.time()
 
         # Compute sleep time based on source FPS
@@ -92,12 +110,6 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
 
         # Close camera and release resources
         self._close_camera_reader()
-    
-    def stop(self):
-        """
-        Stops the camera reader thread, and child threads (stream, motion, etc).
-        """
-        self._camera_stop_event.set()
 
     def _close_camera_reader(self):
         """

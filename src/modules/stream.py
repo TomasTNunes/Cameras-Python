@@ -21,11 +21,16 @@ class StreamServer:
         self.camera_name = camera_name
         self.port = port
 
+        # Stream Thread Parameters
+        self._stream_thread = threading.Thread(
+            target=self._run,
+            daemon=True
+        )
+
         # RecordingManager Class Module and Thread
         self.recorder = RecordingManager(camera_name, camera_name_norm)
         if self.recorder.save_recording:
             self.recorder_thread = threading.Thread(target=self.recorder.start, daemon=True)
-
 
         # Initialize stream raw frames queue 
         max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (raw frames are heavy)
@@ -43,10 +48,14 @@ class StreamServer:
                     # (Might be a good idea to relpace frame by oldest instead of dropping it, 
                     # should reduce latency build up in spike scenarios)
 
-
     def start(self):
         """
-        Starts the stream server.
+        Starts the stream server thread.
+        """
+        self._stream_thread.start()
+
+    def _run(self):
+        """
         Run Flask app in a seperate thread.
         """
         logger.info(f"Starting stream server for {self.camera_name} on port {self.port} (http://{self._get_local_ip()}:{self.port}).")
