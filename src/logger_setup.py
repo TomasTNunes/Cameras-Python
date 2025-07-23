@@ -8,7 +8,7 @@ logger.propagate = False
 
 # Set formatter for log messages
 formatter = logging.Formatter(
-    fmt='%(asctime)s - %(levelname)s - %(message)s',
+    fmt='%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 

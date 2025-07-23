@@ -103,7 +103,7 @@ class Config:
 
         for cam_id, cam_cfg in cameras.items():
             try:
-                required_fields = ['camera', 'name', 'target_fps', 'port']
+                required_fields = ['camera', 'name', 'target_fps', 'port', 'show_fps']
                 for field in required_fields:
                     if field not in cam_cfg:
                         raise ValueError(f"Missing required field '{field}'")
@@ -124,6 +124,10 @@ class Config:
                 if port in seen_ports:
                     raise ValueError(f"Duplicate port number: {port}")
                 seen_ports.append(port)
+
+                show_fps = cam_cfg['show_fps']
+                if not isinstance(show_fps, bool):
+                    raise TypeError("'show_fps' must be a boolean")
 
                 cam_path = cam_cfg['camera']
                 if not isinstance(cam_path, str) and not isinstance(cam_path, int):

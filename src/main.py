@@ -26,12 +26,13 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             camera=cam_cfg['camera'],
             target_fps=cam_cfg['target_fps'],
             port=cam_cfg['port'],
+            show_fps=cam_cfg['show_fps'],
             source_format=cam_cfg.get('source_format', None),
             width=cam_cfg.get('width', None),
             height=cam_cfg.get('height', None),
             source_fps=cam_cfg.get('source_fps', None),
         )
-        CAMERA.start()
+        CAMERA.start() # Start camera thread
         CAMERAS[cam_id] = CAMERA
     except Exception as e:
         logger.error(f"{e}")

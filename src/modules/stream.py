@@ -5,6 +5,7 @@ from logger_setup import logger
 import socket
 from modules.recording import RecordingManager
 import threading
+import time
 
 class StreamServer:
     """
@@ -14,27 +15,38 @@ class StreamServer:
     Feeds encoded frames to RecordingManager Module.
     """
 
-    def __init__(self, camera_name: str, camera_name_norm: str, port: int):
+    def __init__(self, camera_name: str, camera_name_norm: str, port: int, target_fps: int):
         """
         Initializes the StreamServer with required parameters.
         """
         self.camera_name = camera_name
         self.port = port
+        self.target_fps = target_fps
 
-        # Stream Thread Parameters
+        # Stream Thread
         self._stream_thread = threading.Thread(
             target=self._run,
             daemon=True
         )
 
-        # RecordingManager Class Module and Thread
-        self.recorder = RecordingManager(camera_name, camera_name_norm)
-        if self.recorder.save_recording:
-            self.recorder_thread = threading.Thread(target=self.recorder.start, daemon=True)
-
         # Initialize stream raw frames queue 
         max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (raw frames are heavy)
         self.frame_queue = Queue(maxsize=max_stream_queue_size)
+
+        # Initialize variables for stream frame queue reader tread
+        self._latest_frame = None
+        self._latest_frame_lock = threading.Lock()
+        self._frame_dispatcher_thread = threading.Thread(
+            target=self._frame_dispatcher,
+            daemon=True
+        )
+
+        # Initialize RecordingManager Class Module
+        self.recording_manager = RecordingManager(
+            camera_name=camera_name,
+            camera_name_norm=camera_name_norm,
+            target_fps=target_fps
+        )
     
     def write(self, frame: bytes):
         """
@@ -50,34 +62,60 @@ class StreamServer:
 
     def start(self):
         """
-        Starts the stream server thread.
+        Starts the stream server thread and encoded frame dispatcher thread.
         """
+        self._frame_dispatcher_thread.start()
         self._stream_thread.start()
+    
+    def _frame_dispatcher(self):
+        """
+        Seperate thread loop to read raw frame from queue, encoding it to jpeg and serve it to all clients and Recorfing Manger Class Module.
+        """
+        while True:
+            frame = self.frame_queue.get()
+            if frame is None:
+                 continue
+            
+            # Encode frame as JPEG
+            ret, jpeg = cv2.imencode('.jpg', frame)
+            if not ret:
+                continue
+
+            # JPEG NumPy array to bytes
+            jpeg_bytes = jpeg.tobytes()
+
+            # Save for clients
+            with self._latest_frame_lock:
+                self._latest_frame = jpeg_bytes
+
+            # Feed Encoded frame to RecordingManager
+            self.recording_manager.write(jpeg_bytes)
 
     def _run(self):
         """
         Run Flask app in a seperate thread.
         """
         logger.info(f"Starting stream server for {self.camera_name} on port {self.port} (http://{self._get_local_ip()}:{self.port}).")
+        self.recording_manager.start()  # Start recording manager thread
         app = Flask(__name__)
 
         def generate():
+            """
+            Called for each client.
+            """
             while True:
-                frame = self.frame_queue.get()
-                if frame is None:
-                    continue
-
-                # Encode frame as JPEG
-                ret, jpeg = cv2.imencode('.jpg', frame)
-                if not ret:
-                    continue
+                with self._latest_frame_lock:
+                    if self._latest_frame is None:
+                        continue
+                    jpeg_bytes = self._latest_frame
 
                 # Return frame as part of a multipart response
                 yield (
                     b'--frame\r\n'
                     b'Content-Type: image/jpeg\r\n\r\n' +
-                    jpeg.tobytes() + b'\r\n'
+                    jpeg_bytes + b'\r\n'
                 )
+                time.sleep(1 / self.target_fps / 2)  # Sleep half the time to allow for processing. Prevents uncessary CPU usage.
 
         @app.route('/')
         def video_feed():
@@ -93,7 +131,7 @@ class StreamServer:
                     use_reloader=False # Prevent duplicate threads or errors when running Flask in a background thread
                     )
         except Exception as e:
-            logger.error(f'Error running flask app for camera {self.camera_name}: {e}')
+            logger.error(f'Error running flask app for camera {self.camera_name}: {e}')    
     
     def _get_local_ip(self):
         """

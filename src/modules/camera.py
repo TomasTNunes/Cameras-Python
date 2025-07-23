@@ -15,7 +15,7 @@ class CameraReader:
     """
 
     def __init__(self, camera_name: str, camera_name_norm: str, camera: str, 
-                 target_fps: int, port: int, source_format: str = None,
+                 target_fps: int, port: int, show_fps: bool, source_format: str = None,
                  width: int = None, height: int = None, source_fps: int = None):
         """
         Initializes the CameraReader with camera parameters.
@@ -23,8 +23,9 @@ class CameraReader:
         self.camera_name = camera_name
         self.target_fps = target_fps
         self.target_frame_interval = 1.0 / target_fps
+        self.show_fps = show_fps
 
-        # Camera Thread Parameters
+        # Camera Thread
         self._camera_thread = threading.Thread(
             target=self._run,
             daemon=True
@@ -46,8 +47,8 @@ class CameraReader:
         if source_fps:
             self.cap.set(cv2.CAP_PROP_FPS, source_fps)
 
-        # Initialize StreamServer Class Module and Thread
-        self.stream_server = StreamServer(camera_name, camera_name_norm, port)
+        # Initialize StreamServer Class Module
+        self.stream_server = StreamServer(camera_name, camera_name_norm, port, target_fps)
 
         # Initialize motion frames queue
         # max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)
@@ -63,10 +64,11 @@ class CameraReader:
         """
         Stops the camera reader thread, and child threads (stream, motion, etc).
         """
+        self.stream_server.recording_manager.stop()  # Stop recording manager thread
         self._camera_stop_event.set()
         self._camera_thread.join()
         logger.info(f"Camera '{self.camera_name}' thread stopped.")
-    
+
     def _run(self):
         """
         To be ran in a separate thread.
@@ -82,7 +84,6 @@ class CameraReader:
 Target_FPS: {self.target_fps}, Width: {int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))}, \
 Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         self.stream_server.start() # Start streaming thread
-        last_display_time = time.time()
 
         # Compute sleep time based on source FPS
         if source_fps and source_fps >= 1:
@@ -90,6 +91,16 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         else:
             sleep_time = 0.005 # Sleep 5ms (default) to prevent high CPU usage (for 30 fps camera new frames are available every ~33ms)
         
+        # fps computation variables
+        if self.show_fps:
+            throttle_frame_count = 0
+            throttle_start_time = time.time()
+            current_fps = 0.0
+
+        # Time-based throttling control variable
+        next_display_time = time.time()
+
+        # Camera Thread Loop
         while not self._camera_stop_event.is_set():
             # Read frame from camera (always read in BGR, independent from source format)
             ret, frame = self.cap.read()
@@ -99,9 +110,25 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             now = time.time()
             
             # Time-based throttling
-            if now - last_display_time >= self.target_frame_interval:
-                last_display_time = now
-                frame = self._draw_frame_info(frame)
+            if now >= next_display_time:
+
+                # Update Time-based throttling control variable for next iterations
+                next_display_time += self.target_frame_interval
+                
+                # Compute fps
+                if self.show_fps:
+                    throttle_frame_count += 1
+                    elapsed = now - throttle_start_time
+                    if elapsed >= 1:
+                        current_fps = throttle_frame_count / elapsed
+                        throttle_frame_count = 0
+                        throttle_start_time = now
+
+                    # Draw name, time-stamps and fps into frame
+                    frame = self._draw_frame_info(frame, now, current_fps)
+                else:
+                    # Draw name and time-stamps
+                    frame = self._draw_frame_info(frame, now)
 
                 # Write raw frame to stream server queue
                 self.stream_server.write(frame)
@@ -119,10 +146,11 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             self.cap.release()
             logger.info(f"Camera '{self.camera_name}' released.")
 
-    def _draw_frame_info(self, frame):
+    def _draw_frame_info(self, frame: bytes, now: float, fps: float = None):
         """
         Draws the date and time (with milliseconds) in the bottom-right corner,
         and the camera name in the top-left corner, styled like a vigilance system.
+        Draws fps in top-right corner, if given.
         """
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.6
@@ -133,12 +161,11 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         shadow_color = (0, 0, 0)  # black shadow
         
         # Get current time with milliseconds
-        now = time.time()
         local_time = time.localtime(now)
         millis = int((now - int(now)) * 1000)
         
         date_str = time.strftime("%d-%m-%Y", local_time)
-        time_str = time.strftime(f"%H:%M:%S.{millis:03d}", local_time)  # HH:MM:SS.mmm format
+        time_str = time.strftime(f"%H:%M:%S.{millis:03d}", local_time)
         
         # Get text sizes
         (date_w, date_h), _ = cv2.getTextSize(date_str, font, font_scale, thickness)
@@ -148,7 +175,7 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         h, w = frame.shape[:2]
         
         # Draw shadow for better visibility
-        def draw_text_with_shadow(img, text, pos):
+        def draw_text_with_shadow(img: bytes, text: str, pos: int):
             x, y = pos
             # shadow offset by 1 px right and down
             cv2.putText(img, text, (x+1, y+1), font, font_scale, shadow_color, thickness, cv2.LINE_AA)
@@ -160,5 +187,11 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         
         # Top-left corner for camera name
         draw_text_with_shadow(frame, self.camera_name, (10, name_h + 10))
+
+        # Top-right corner for FPS
+        if fps:
+            fps_str = f"{fps:.2f} fps"
+            (fps_w, fps_h), _ = cv2.getTextSize(fps_str, font, font_scale, thickness)
+            draw_text_with_shadow(frame, fps_str, (w - fps_w - 10, fps_h + 10))
         
         return frame
