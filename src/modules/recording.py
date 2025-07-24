@@ -21,6 +21,7 @@ class RecordingManager:
     save_recording = False
     output_dir = None
     max_days_to_save = None
+    h264_encoder = None
 
     def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int):
         """
@@ -53,7 +54,8 @@ class RecordingManager:
         self.rec_queue = Queue(maxsize=max_rec_queue_size)
     
     @classmethod
-    def setClassConfig(cls, save_recording: bool, output_dir: str = None, max_days_to_save: int = None):
+    def setClassConfig(cls, save_recording: bool, output_dir: str = None, 
+                       max_days_to_save: int = None, h264_encoder: str = None):
         """
         Set the shared configs across all instances of this class.
         To be called before any instance is created.
@@ -61,6 +63,7 @@ class RecordingManager:
         cls.save_recording = save_recording
         cls.output_dir = output_dir
         cls.max_days_to_save = max_days_to_save
+        cls.h264_encoder = h264_encoder
     
     def write(self, frame: bytes):
         """
@@ -165,7 +168,7 @@ class RecordingManager:
         # If previous file exists, convert it to .mp4
         if previous_file_path and os.path.exists(previous_file_path):
             # Considering changing daemon to False to ensure conversion completes before exiting app
-            threading.Thread(target=self._convert_to_mp4, args=(previous_file_path,), daemon=True).start()
+            threading.Thread(target=self._convert_to_h264, args=(previous_file_path,), daemon=True).start()
 
     def _start_ffmpeg(self):
         """
@@ -209,10 +212,42 @@ class RecordingManager:
                 logger.error(f"Error in camera '{self.camera_name}': Error stopping FFmpeg process ('{self._current_file_path}'): {e}")
             self._ffmpeg_process = None
 
-    def _convert_to_mp4(self, previous_file_path: str):
+    def _convert_to_h264(self, avi_path: str):
         """
+        To be ran in seperate Thread.
+        Converts the .avi MJPEG encoded to .mp4 h264 encoded, reducing bitrate to 1M and using ffmpeg.
         """
-        pass
+        mp4_path = avi_path.rsplit('.', 1)[0] + '.mp4' # to convert to mp4
+        logger.info(f"Camera '{self.camera_name}': Starting converting to h264 from '{avi_path}' to '{mp4_path}'")
+        if self.h264_encoder == 'h264_vaapi':
+            cmd = [
+                'ffmpeg',
+                '-i', avi_path,
+                '-vaapi_device', '/dev/dri/renderD128',
+                '-vf', 'format=nv12,hwupload',
+                '-c:v', self.h264_encoder,
+                '-preset', 'superfast',
+                '-b:v', '1000k',
+                '-movflags', '+faststart',
+                mp4_path
+            ]
+        else:
+            cmd = [
+                'ffmpeg',
+                '-i', avi_path,
+                '-c:v', self.h264_encoder,
+                '-preset', 'superfast',
+                '-b:v', '1000k',
+                '-movflags', '+faststart',
+                mp4_path
+            ]
+        try:
+            subprocess.run(cmd, check=True)
+            logger.info(f"Camera '{self.camera_name}': Converted '{avi_path}' to '{mp4_path}'")
+            os.remove(avi_path)
+            logger.info(f"Camera '{self.camera_name}': Removed avi file '{avi_path}'")
+        except Exception as e:
+            logger.error(f"Error in camera '{self.camera_name}': converting {avi_path} to mp4: {e}")
 
     def _clean_old_files(self):
         """

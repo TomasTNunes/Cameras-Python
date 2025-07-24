@@ -29,6 +29,9 @@ Recordings:
   directory: '../data/recording' # Directory where camera recordings will be saved 
                                  # (absolute path or relative path to where the script is being run from)
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
+  h264_encoder: 'h264_vaapi' # h264 encoder
+                           # Software(CPU): libx264, ...
+                           # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
 
 Logs:
   save: True # Whether to save logs (True/False)

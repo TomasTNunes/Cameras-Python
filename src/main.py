@@ -13,7 +13,8 @@ CONFIG = Config(config_file='config.yaml')
 RecordingManager.setClassConfig(
     save_recording=CONFIG.recordings['save'],
     output_dir=CONFIG.recordings.get('directory', None),
-    max_days_to_save=CONFIG.recordings.get('max_days_to_save', None)
+    max_days_to_save=CONFIG.recordings.get('max_days_to_save', None),
+    h264_encoder=CONFIG.recordings.get('h264_encoder', None)
 )
 
 # Initialize Cameras from Config

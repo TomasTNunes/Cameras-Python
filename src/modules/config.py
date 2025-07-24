@@ -4,6 +4,7 @@ import cv2
 from types import MappingProxyType
 from logger_setup import setup_logger_file, logger
 from utils import check_create_directory
+import subprocess
 
 class Config:
     """
@@ -203,6 +204,7 @@ class Config:
         else:
             rec_dir = rec_cfg.get('directory')
             max_days = rec_cfg.get('max_days_to_save')
+            h264_encoder = rec_cfg.get('h264_encoder')
 
             if not isinstance(rec_dir, str):
                 logger.error("'directory' must be a string.")
@@ -211,10 +213,60 @@ class Config:
             if not isinstance(max_days, int) or max_days < 1:
                 logger.error("'max_days_to_save' must be an integer >= 1")
                 raise ValueError("'max_days_to_save' must be an integer >= 1")
+            
+            if not isinstance(h264_encoder, str):
+                logger.error("'h264_encoder' must be a string.")
+                raise TypeError("'h264_encoder' must be a string")
+            try:
+                result = subprocess.run(
+                    ['ffmpeg', '-hide_banner', '-encoders'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True
+                )
+                if not any(h264_encoder in line and '(codec h264)' in line for line in result.stdout.splitlines()):
+                    raise ValueError(f"'{h264_encoder}' h264_encoder is not supported on this machine.")
+            except FileNotFoundError:
+                logger.error("ffmpeg is not installed or not in PATH.")
+                raise
+            except Exception as e:
+                logger.error(f"Error in ffmpeg or 'h264_encoder': {e}")
+                raise
+            try:
+                if h264_encoder == 'h264_vaapi':
+                    test_command = [
+                        'ffmpeg',
+                        '-hide_banner',
+                        '-loglevel', 'error',
+                        '-f', 'lavfi',
+                        '-i', 'testsrc=duration=1:size=256x144:rate=5',
+                        '-vaapi_device', '/dev/dri/renderD128',
+                        '-vf', 'format=nv12,hwupload',
+                        '-c:v', h264_encoder,
+                        '-f', 'null',
+                        '-'
+                    ]
+                else:
+                    test_command = [
+                        'ffmpeg',
+                        '-hide_banner',
+                        '-loglevel', 'error',
+                        '-f', 'lavfi',
+                        '-i', 'testsrc=duration=1:size=128x128:rate=5',
+                        '-c:v', h264_encoder,
+                        '-f', 'null',
+                        '-'
+                    ]
+                subprocess.run(test_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            except Exception as e:
+                logger.error(f"Error with h264_encoder '{h264_encoder}': {e}")
+                raise
 
             check_create_directory(rec_dir)
             self._recordings['directory'] = rec_dir
             self._recordings['max_days_to_save'] = max_days
+            self._recordings['h264_encoder'] = h264_encoder
             logger.info("Cameras recordings are enabled.")
     
         
