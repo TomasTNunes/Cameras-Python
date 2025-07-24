@@ -1,4 +1,3 @@
-import threading
 from logger_setup import logger
 from modules.config import Config
 from modules.camera import CameraReader

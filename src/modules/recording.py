@@ -1,10 +1,12 @@
 import os
-from queue import Queue, Empty
-from logger_setup import logger
-from utils import check_create_directory
 import threading
 import datetime
 import subprocess
+import time
+import glob
+from queue import Queue, Empty
+from logger_setup import logger
+from utils import check_create_directory
 
 class RecordingManager:
     """
@@ -103,7 +105,7 @@ class RecordingManager:
             # Check file rotation condition
             if self._check_file_rotation():
                 self._rotate_file()
-                self._clean_old_files()
+                threading.Thread(target=self._clean_old_files, daemon=True).start() # Thread to delete old files
 
             try:
                 frame_bytes = self.rec_queue.get(timeout=1) # Encoded frame in JPEG bytes
@@ -165,7 +167,7 @@ class RecordingManager:
         # Start new ffmpeg process for current hour .avi file
         self._start_ffmpeg()
 
-        # If previous file exists, convert it to .mp4
+        # If previous file exists, convert it to .mp4 in different thread
         if previous_file_path and os.path.exists(previous_file_path):
             # Considering changing daemon to False to ensure conversion completes before exiting app
             threading.Thread(target=self._convert_to_h264, args=(previous_file_path,), daemon=True).start()
@@ -247,12 +249,23 @@ class RecordingManager:
             os.remove(avi_path)
             logger.info(f"Camera '{self.camera_name}': Removed avi file '{avi_path}'")
         except Exception as e:
-            logger.error(f"Error in camera '{self.camera_name}': converting {avi_path} to mp4: {e}")
+            logger.error(f"Error in camera '{self.camera_name}': Failed converting {avi_path} to mp4: {e}")
 
     def _clean_old_files(self):
         """
+        To be ran in seperate thread.
+        Deletes recordig files older than threshold defined by `self.max_days_to_save`.
         """
-        pass
+        cutoff = time.time() - self.max_days_to_save * 86400
+        for ext in ['avi', 'mp4']:
+            pattern = os.path.join(self.output_dir, f"*.{ext}")
+            for f in glob.glob(pattern):
+                if os.path.getmtime(f) < cutoff:
+                    try:
+                        os.remove(f)
+                        logger.info(f"Camera '{self.camera_name}': Deleted old recording '{f}'")
+                    except Exception as e:
+                        logger.error(f"Error in camera '{self.camera_name}': Failed to delete old file '{f}': {e}")
 
 
 

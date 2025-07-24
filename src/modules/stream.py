@@ -1,11 +1,11 @@
-from queue import Queue
-from flask import Flask, Response
 import cv2
-from logger_setup import logger
-import socket
-from modules.recording import RecordingManager
 import threading
 import time
+import socket
+from queue import Queue
+from flask import Flask, Response
+from modules.recording import RecordingManager
+from logger_setup import logger
 
 class StreamServer:
     """

@@ -1,9 +1,8 @@
 import cv2
-from logger_setup import logger
 import time
 import threading
-from queue import Queue
 from modules.stream import StreamServer
+from logger_setup import logger
 
 class CameraReader:
     """

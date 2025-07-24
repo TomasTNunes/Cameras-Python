@@ -1,10 +1,9 @@
 import yaml
-import os
 import cv2
+import subprocess
 from types import MappingProxyType
 from logger_setup import setup_logger_file, logger
 from utils import check_create_directory
-import subprocess
 
 class Config:
     """
