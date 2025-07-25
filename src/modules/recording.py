@@ -228,7 +228,16 @@ class RecordingManager:
                 '-vaapi_device', '/dev/dri/renderD128',
                 '-vf', 'format=nv12,hwupload',
                 '-c:v', self.h264_encoder,
-                '-preset', 'superfast',
+                '-b:v', '1000k',
+                '-movflags', '+faststart',
+                mp4_path
+            ]
+        elif self.h264_encoder == 'h264_v4l2m2m':
+            cmd = [
+                'ffmpeg',
+                '-i', avi_path,
+                '-pix_fmt', 'yuv420p',
+                '-c:v', self.h264_encoder,
                 '-b:v', '1000k',
                 '-movflags', '+faststart',
                 mp4_path
@@ -238,7 +247,7 @@ class RecordingManager:
                 'ffmpeg',
                 '-i', avi_path,
                 '-c:v', self.h264_encoder,
-                '-preset', 'superfast',
+                '-preset', 'superfast', # only used with libx264 encoder
                 '-b:v', '1000k',
                 '-movflags', '+faststart',
                 mp4_path
