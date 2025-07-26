@@ -21,7 +21,6 @@ class CameraReader:
         """
         self.camera_name = camera_name
         self.target_fps = target_fps
-        self.target_frame_interval = 1.0 / target_fps
         self.show_fps = show_fps
 
         # Camera Thread
@@ -97,6 +96,7 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             current_fps = 0.0
 
         # Time-based throttling control variable
+        target_frame_interval = 1.0 / self.target_fps
         next_display_time = time.time()
 
         # Camera Thread Loop
@@ -112,7 +112,7 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             if now >= next_display_time:
 
                 # Update Time-based throttling control variable for next iterations
-                next_display_time += self.target_frame_interval
+                next_display_time += target_frame_interval
                 
                 # Compute fps
                 if self.show_fps:

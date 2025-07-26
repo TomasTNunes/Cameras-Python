@@ -5,7 +5,7 @@ Useful to Debug RecordingManager Class Module.
 
 import cv2
 
-video_path = '/home/tomas/GitHub/Cameras-Python/data/recording/laptop/laptop_23_00_23_07_2025.mp4'
+video_path = '/home/tomas/GitHub/Cameras-Python/data/recording/laptop/laptop_01_02_26_07_2025.mp4'
 
 cap = cv2.VideoCapture(video_path)
 

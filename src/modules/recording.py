@@ -13,9 +13,9 @@ class RecordingManager:
     RecordingManager Module Class.
     Handles video recording from the camera.
     Also manages file rotation and cleanup of old recordings.
-    Video Files are saved for every.
-    The video for the current hour is saved in .avi encoded in MJPG format.
-    Afer every hour this .avi file is converted to .mp4 encoded in h264 format.
+    Video Files are saved for every hour.
+    The video for the current hour is saved in .avi encoded in MJPG format or .mp4 encoded in h264.
+    Afer every hour this .avi file can be converted to .mp4 encoded in h264 format, if config given.
     Uses FFmpeg.
     """
 
@@ -23,7 +23,9 @@ class RecordingManager:
     save_recording = False
     output_dir = None
     max_days_to_save = None
+    encode_to_h264 = None
     h264_encoder = None
+    bitrate = None
 
     def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int):
         """
@@ -57,7 +59,8 @@ class RecordingManager:
     
     @classmethod
     def setClassConfig(cls, save_recording: bool, output_dir: str = None, 
-                       max_days_to_save: int = None, h264_encoder: str = None):
+                       max_days_to_save: int = None, encode_to_h264: int = None,
+                       h264_encoder: str = None, bitrate: int = None):
         """
         Set the shared configs across all instances of this class.
         To be called before any instance is created.
@@ -65,7 +68,9 @@ class RecordingManager:
         cls.save_recording = save_recording
         cls.output_dir = output_dir
         cls.max_days_to_save = max_days_to_save
+        cls.encode_to_h264 = encode_to_h264
         cls.h264_encoder = h264_encoder
+        cls.bitrate = bitrate
     
     def write(self, frame: bytes):
         """
@@ -153,51 +158,92 @@ class RecordingManager:
         """
         Rotates the recording file for the current hour.
         Stops the current FFmpeg process, starts a new one for the next hour.
-        Starts Thread to convert the previous file to h264 in .mp4.
+        Starts Thread to convert the previous file to h264 in .mp4, if required.
         """
         self._stop_ffmpeg()
 
-        # New Filename `name_norm_HHi_HHf_DD_MM_YYYY.avi`
+        # New Filename `name_norm_HHi_HHf_DD_MM_YYYY.ext`
         previous_file_path = self._current_file_path
         next_hour = (self._current_hour.hour + 1) % 24
-        filename = f"{self.camera_name_norm}_{self._current_hour.hour:02d}_{next_hour:02d}_{self._current_hour.day:02d}_{self._current_hour.month:02d}_{self._current_hour.year}.avi"
+        if self.encode_to_h264 in [0, 1]:
+            ext = 'avi'
+        else:
+            ext = 'mp4'
+        filename = f"{self.camera_name_norm}_{self._current_hour.hour:02d}_{next_hour:02d}_{self._current_hour.day:02d}_{self._current_hour.month:02d}_{self._current_hour.year}.{ext}"
         self._check_file_name(filename)
         logger.info(f"Camera '{self.camera_name}': Rotating recording file for new hour '{self._current_hour}' in '{self._current_file_path}'.")
 
-        # Start new ffmpeg process for current hour .avi file
+        # Start new ffmpeg process for current hour file
         self._start_ffmpeg()
 
-        # If previous file exists, convert it to .mp4 in different thread
-        if previous_file_path and os.path.exists(previous_file_path):
+        # If previous file exists and config to encode to h264 (=1), convert it to .mp4 in different thread
+        if self.encode_to_h264 == 1 and previous_file_path and os.path.exists(previous_file_path):
             # Considering changing daemon to False to ensure conversion completes before exiting app
             threading.Thread(target=self._convert_to_h264, args=(previous_file_path,), daemon=True).start()
 
     def _start_ffmpeg(self):
         """
         Starts the FFmpeg process to record the video stream.
-        It records the frames encoded in MJPG format (recived from stream thread) to an .avi file.
+        It records the frames encoded in MJPG format (recived from stream thread) to an .avi file or
+        encodes the frames encoded in MJPG format (recived from stream thread) to h264 and then records to an .mp4 file.
         FFmpeg Process receives frames from stdin Pipeline.
-        Two Oprions for FFmpeg:
-        1) Copy the video stream "as is" (no re-encoding) to .avi file. This leads to Very Low CPU usage, but the file is large. 
-           After finalization file has to be converted which will utilize higher CPU usage while converting.
-            ffmpeg -y -f mjpeg -i pipe:0 -c:v copy output.avi
-        2) Re-encode the video stream live to h264 format (using hardward acceleration (GPU)) to .avi file. A bit higher CPU usage, but the file is smaller.
-           No need for conversion after finalisation.
-            ffmpeg -f mjpeg -i pipe:0 -c:v h264_v4l2m2m(or other) -f avi output.avi
-        For now using 1), but considering changing/testing to 2) in the future.
-        In order to be able to open file before finalization, it has to be in .avi format, as .mp4 cannot be opened before finalization.
         """
         logger.info(f"Camera '{self.camera_name}': Starting FFmpeg process for recording file '{self._current_file_path}'.")
-        cmd = [
-            'ffmpeg',
-            '-y', # overwrite output file if exists (needed as we are continuously writing to the same file within the same hour)
-            '-f', 'mjpeg', # input format of frames (we are piping JPEG-encoded frames)
-            '-framerate', str(self.target_fps), # input frame rate
-            '-i', 'pipe:0', # input comes from STDIN (pipe:0 = standard input)
-            '-r', str(self.target_fps), # output frame rate
-            '-c:v', 'copy', # copy the video stream "as is" (no re-encoding) (for this case it is supported in .avi file)
-            self._current_file_path
-        ]
+        if self.encode_to_h264 in [0, 1]: # MJPG .avi for current hour file
+            cmd = [
+                'ffmpeg',
+                '-y', # overwrite output file if exists (needed as we are continuously writing to the same file within the same hour)
+                '-f', 'mjpeg', # input format of frames (we are piping JPEG-encoded frames)
+                '-framerate', str(self.target_fps), # input frame rate
+                '-i', 'pipe:0', # input comes from STDIN (pipe:0 = standard input)
+                '-r', str(self.target_fps), # output frame rate
+                '-c:v', 'copy', # copy the video stream "as is" (no re-encoding) (for this case it is supported in .avi file)
+                self._current_file_path
+            ]
+        else: # encode to h264 for current hour file
+            if self.h264_encoder == 'h264_vaapi':
+                cmd = [
+                    'ffmpeg',
+                    '-y',
+                    '-f', 'mjpeg',
+                    '-framerate', str(self.target_fps),
+                    '-i', 'pipe:0',
+                    '-vaapi_device', '/dev/dri/renderD128', # required for h264_vaapi encoder
+                    '-vf', 'format=nv12,hwupload', # required for h264_vaapi encoder
+                    '-r', str(self.target_fps),
+                    '-c:v', self.h264_encoder, # encode to h264
+                    '-b:v', f'{self.bitrate}k', # output bitrate
+                    #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
+                    self._current_file_path
+                ]
+            elif self.h264_encoder == 'h264_v4l2m2m':
+                cmd = [
+                    'ffmpeg',
+                    '-y',
+                    '-f', 'mjpeg',
+                    '-framerate', str(self.target_fps),
+                    '-i', 'pipe:0',
+                    '-pix_fmt', 'yuv420p', # pixel format required for h264_v4l2m2m
+                    '-r', str(self.target_fps),
+                    '-c:v', self.h264_encoder, # encode to h264
+                    '-b:v', f'{self.bitrate}k',
+                    #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
+                    self._current_file_path
+                ]
+            else:
+                cmd = [
+                    'ffmpeg',
+                    '-y',
+                    '-f', 'mjpeg',
+                    '-framerate', str(self.target_fps),
+                    '-i', 'pipe:0',
+                    '-r', str(self.target_fps),
+                    '-c:v', self.h264_encoder, # encode to h264
+                    '-preset', 'ultrafast', # only used with libx264 encoder to reduce CPU usage
+                    '-b:v', f'{self.bitrate}k',
+                    #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
+                    self._current_file_path
+                ]
         self._ffmpeg_process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     
     def _stop_ffmpeg(self):
@@ -217,7 +263,7 @@ class RecordingManager:
     def _convert_to_h264(self, avi_path: str):
         """
         To be ran in seperate Thread.
-        Converts the .avi MJPEG encoded to .mp4 h264 encoded, reducing bitrate to 1M and using ffmpeg.
+        Converts the .avi MJPEG encoded to .mp4 h264 encoded, using ffmpeg.
         """
         mp4_path = avi_path.rsplit('.', 1)[0] + '.mp4' # to convert to mp4
         logger.info(f"Camera '{self.camera_name}': Starting converting to h264 from '{avi_path}' to '{mp4_path}'")
@@ -228,7 +274,7 @@ class RecordingManager:
                 '-vaapi_device', '/dev/dri/renderD128',
                 '-vf', 'format=nv12,hwupload',
                 '-c:v', self.h264_encoder,
-                '-b:v', '1000k',
+                '-b:v', f'{self.bitrate}k',
                 '-movflags', '+faststart',
                 mp4_path
             ]
@@ -238,7 +284,7 @@ class RecordingManager:
                 '-i', avi_path,
                 '-pix_fmt', 'yuv420p',
                 '-c:v', self.h264_encoder,
-                '-b:v', '1000k',
+                '-b:v', f'{self.bitrate}k',
                 '-movflags', '+faststart',
                 mp4_path
             ]
@@ -247,8 +293,8 @@ class RecordingManager:
                 'ffmpeg',
                 '-i', avi_path,
                 '-c:v', self.h264_encoder,
-                '-preset', 'superfast', # only used with libx264 encoder
-                '-b:v', '1000k',
+                '-preset', 'ultrafast', # only used with libx264 encoder
+                '-b:v', f'{self.bitrate}k',
                 '-movflags', '+faststart',
                 mp4_path
             ]
@@ -266,7 +312,7 @@ class RecordingManager:
         Deletes recordig files older than threshold defined by `self.max_days_to_save`.
         """
         cutoff = time.time() - self.max_days_to_save * 86400
-        for ext in ['avi', 'mp4']:
+        for ext in ['avi', 'mp4', '.mkv', '.ts']:
             pattern = os.path.join(self.output_dir, f"*.{ext}")
             for f in glob.glob(pattern):
                 if os.path.getmtime(f) < cutoff:

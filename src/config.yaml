@@ -9,7 +9,7 @@ Cameras:
     port: 50000 # Port for the stream server to stream video
     show_fps: False # Whether to show fps for this camera in frames (True/False)
     # following parameters are not mandatory, if not set OpenCV will use default values
-    source_format: 'MJPG' # Video pixel format, e.g. 'MJPG' or 'YUYV' (has to be supported by camera)
+    source_format: 'MJPG' # Video pixel format, e.g. 'MJPG', 'YUYV', ... (has to be supported by camera)
     width: 640 # Width of the video stream (has to be supported by camera)
     height: 480 # Height of the video stream (has to be supported by camera)
     source_fps: 30 # Actual FPS to read from camera (has to be supported by camera)
@@ -29,9 +29,14 @@ Recordings:
   directory: '../data/recording' # Directory where camera recordings will be saved 
                                  # (absolute path or relative path to where the script is being run from)
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
-  h264_encoder: 'h264_vaapi' # h264 encoder
+  encode_to_h264: 2 # Whether to encode to h264. (0/1/2) 
+                    # 0 -> Save recordings in MJPG .avi (no-encode to h264).
+                    # 1 -> Save real time recordings in MJPG .avi, and convert to h264 .mp4 after each hour.
+                    # 2 -> Save recordings in h264 .mp4 (including real time recording).
+  h264_encoder: 'h264_vaapi' # h264 encoder (Required if `encode_to_h264` is 1 or 2)
                            # Software(CPU): libx264, ...
                            # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
+  bitrate: 5000 # Bitrate of h264 encoded recording in kbps. (Required if `encode_to_h264` is 1 or 2)
 
 Logs:
   save: True # Whether to save logs (True/False)

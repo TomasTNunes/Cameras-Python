@@ -103,11 +103,13 @@ class StreamServer:
             """
             Called for each client.
             """
+            frame_interval = 1.0 / self.target_fps
             while True:
+                start = time.time()
                 with self._latest_frame_lock:
-                    if self._latest_frame is None:
-                        continue
                     jpeg_bytes = self._latest_frame
+                if jpeg_bytes is None:
+                        continue
 
                 # Return frame as part of a multipart response
                 yield (
@@ -115,7 +117,7 @@ class StreamServer:
                     b'Content-Type: image/jpeg\r\n\r\n' +
                     jpeg_bytes + b'\r\n'
                 )
-                time.sleep(1 / self.target_fps / 2)  # Sleep half the time to allow for processing. Prevents uncessary CPU usage.
+                time.sleep(max(0, frame_interval - (time.time() - start)))
 
         @app.route('/')
         def video_feed():

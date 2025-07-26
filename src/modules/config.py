@@ -203,69 +203,83 @@ class Config:
         else:
             rec_dir = rec_cfg.get('directory')
             max_days = rec_cfg.get('max_days_to_save')
-            h264_encoder = rec_cfg.get('h264_encoder')
+            encode_to_h264 = rec_cfg.get('encode_to_h264')
 
             if not isinstance(rec_dir, str):
                 logger.error("'directory' must be a string.")
                 raise TypeError("'directory' must be a string")
+            self._recordings['directory'] = rec_dir
 
             if not isinstance(max_days, int) or max_days < 1:
                 logger.error("'max_days_to_save' must be an integer >= 1")
                 raise ValueError("'max_days_to_save' must be an integer >= 1")
+            self._recordings['max_days_to_save'] = max_days
             
-            if not isinstance(h264_encoder, str):
-                logger.error("'h264_encoder' must be a string.")
-                raise TypeError("'h264_encoder' must be a string")
-            try:
-                result = subprocess.run(
-                    ['ffmpeg', '-hide_banner', '-encoders'],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True
-                )
-                if not any(h264_encoder in line and '(codec h264)' in line for line in result.stdout.splitlines()):
-                    raise ValueError(f"'{h264_encoder}' h264_encoder is not supported on this machine.")
-            except FileNotFoundError:
-                logger.error("ffmpeg is not installed or not in PATH.")
-                raise
-            except Exception as e:
-                logger.error(f"Error in ffmpeg or 'h264_encoder': {e}")
-                raise
-            try:
-                if h264_encoder == 'h264_vaapi':
-                    test_command = [
-                        'ffmpeg',
-                        '-hide_banner',
-                        '-loglevel', 'error',
-                        '-f', 'lavfi',
-                        '-i', 'testsrc=duration=1:size=256x144:rate=5',
-                        '-vaapi_device', '/dev/dri/renderD128',
-                        '-vf', 'format=nv12,hwupload',
-                        '-c:v', h264_encoder,
-                        '-f', 'null',
-                        '-'
-                    ]
-                else:
-                    test_command = [
-                        'ffmpeg',
-                        '-hide_banner',
-                        '-loglevel', 'error',
-                        '-f', 'lavfi',
-                        '-i', 'testsrc=duration=1:size=128x128:rate=5',
-                        '-c:v', h264_encoder,
-                        '-f', 'null',
-                        '-'
-                    ]
-                subprocess.run(test_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-            except Exception as e:
-                logger.error(f"Error with h264_encoder '{h264_encoder}': {e}")
-                raise
+            if not isinstance(encode_to_h264, int) or encode_to_h264 not in [0,1,2]:
+                logger.error("'encode_to_h264' must be an integer equal to 0, 1, or 2")
+                raise ValueError("'encode_to_h264' must be an integer equal to 0, 1, or 2")
+            self._recordings['encode_to_h264'] = encode_to_h264
+            
+            if encode_to_h264 in [1, 2]:
+                h264_encoder = rec_cfg.get('h264_encoder')
+                bitrate = rec_cfg.get('bitrate')
+
+                if not isinstance(h264_encoder, str):
+                    logger.error("'h264_encoder' must be a string.")
+                    raise TypeError("'h264_encoder' must be a string")
+                try:
+                    result = subprocess.run(
+                        ['ffmpeg', '-hide_banner', '-encoders'],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        check=True
+                    )
+                    if not any(h264_encoder in line and '(codec h264)' in line for line in result.stdout.splitlines()):
+                        raise ValueError(f"'{h264_encoder}' h264_encoder is not supported on this machine.")
+                except FileNotFoundError:
+                    logger.error("ffmpeg is not installed or not in PATH.")
+                    raise
+                except Exception as e:
+                    logger.error(f"Error in ffmpeg or 'h264_encoder': {e}")
+                    raise
+                try:
+                    if h264_encoder == 'h264_vaapi':
+                        test_command = [
+                            'ffmpeg',
+                            '-hide_banner',
+                            '-loglevel', 'error',
+                            '-f', 'lavfi',
+                            '-i', 'testsrc=duration=1:size=256x144:rate=5',
+                            '-vaapi_device', '/dev/dri/renderD128',
+                            '-vf', 'format=nv12,hwupload',
+                            '-c:v', h264_encoder,
+                            '-f', 'null',
+                            '-'
+                        ]
+                    else:
+                        test_command = [
+                            'ffmpeg',
+                            '-hide_banner',
+                            '-loglevel', 'error',
+                            '-f', 'lavfi',
+                            '-i', 'testsrc=duration=1:size=128x128:rate=5',
+                            '-c:v', h264_encoder,
+                            '-f', 'null',
+                            '-'
+                        ]
+                    subprocess.run(test_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                except Exception as e:
+                    logger.error(f"Error with h264_encoder '{h264_encoder}': {e}")
+                    raise
+                self._recordings['h264_encoder'] = h264_encoder
+
+                if not isinstance(bitrate, int) or bitrate < 1:
+                    logger.error("'bitrate' must be an integer >= 1")
+                    raise ValueError("'bitrate' must be an integer >= 1")
+                self._recordings['bitrate'] = bitrate
 
             check_create_directory(rec_dir)
-            self._recordings['directory'] = rec_dir
-            self._recordings['max_days_to_save'] = max_days
-            self._recordings['h264_encoder'] = h264_encoder
             logger.info("Cameras recordings are enabled.")
     
         

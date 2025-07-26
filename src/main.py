@@ -13,7 +13,9 @@ RecordingManager.setClassConfig(
     save_recording=CONFIG.recordings['save'],
     output_dir=CONFIG.recordings.get('directory', None),
     max_days_to_save=CONFIG.recordings.get('max_days_to_save', None),
-    h264_encoder=CONFIG.recordings.get('h264_encoder', None)
+    encode_to_h264=CONFIG.recordings.get('encode_to_h264', None),
+    h264_encoder=CONFIG.recordings.get('h264_encoder', None),
+    bitrate=CONFIG.recordings.get('bitrate', None)
 )
 
 # Initialize Cameras from Config
