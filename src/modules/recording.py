@@ -230,6 +230,20 @@ class RecordingManager:
                     #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
                     self._current_file_path
                 ]
+            elif self.h264_encoder == 'h264_qsv':
+                cmd = [
+                    'ffmpeg',
+                    '-y',
+                    '-f', 'mjpeg',
+                    '-framerate', str(self.target_fps),
+                    '-i', 'pipe:0',
+                    '-r', str(self.target_fps),
+                    '-c:v', self.h264_encoder, # encode to h264
+                    '-preset', 'veryfast', # h264_qsv does not support ultrafast preset
+                    '-b:v', f'{self.bitrate}k',
+                    #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
+                    self._current_file_path
+                ]
             else:
                 cmd = [
                     'ffmpeg',
@@ -239,7 +253,7 @@ class RecordingManager:
                     '-i', 'pipe:0',
                     '-r', str(self.target_fps),
                     '-c:v', self.h264_encoder, # encode to h264
-                    '-preset', 'ultrafast', # only used with libx264 encoder to reduce CPU usage
+                    '-preset', 'ultrafast', # to reduce CPU/GPU usage
                     '-b:v', f'{self.bitrate}k',
                     #'-movflags', 'frag_keyframe+empty_moov+default_base_moof', # for fragmented-mp4 (fmp4)
                     self._current_file_path
@@ -288,12 +302,22 @@ class RecordingManager:
                 '-movflags', '+faststart',
                 mp4_path
             ]
+        elif self.h264_encoder == 'h264_qsv':
+            cmd = [
+                'ffmpeg',
+                '-i', avi_path,
+                '-c:v', self.h264_encoder,
+                '-preset', 'veryfast', # h264_qsv does not support ultrafast preset
+                '-b:v', f'{self.bitrate}k',
+                '-movflags', '+faststart',
+                mp4_path
+            ]
         else:
             cmd = [
                 'ffmpeg',
                 '-i', avi_path,
                 '-c:v', self.h264_encoder,
-                '-preset', 'ultrafast', # only used with libx264 encoder
+                '-preset', 'ultrafast', # to reduce CPU/GPU usage
                 '-b:v', f'{self.bitrate}k',
                 '-movflags', '+faststart',
                 mp4_path
