@@ -36,7 +36,7 @@ Recordings:
   h264_encoder: 'h264_vaapi' # h264 encoder (Required if `encode_to_h264` is 1 or 2)
                            # Software(CPU): libx264, ...
                            # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
-  bitrate: 5000 # Bitrate of h264 encoded recording in kbps. (Required if `encode_to_h264` is 1 or 2)
+  bitrate: 1000 # Bitrate of h264 encoded recording in kbps. (Required if `encode_to_h264` is 1 or 2)
 
 Logs:
   save: True # Whether to save logs (True/False)
