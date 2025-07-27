@@ -15,13 +15,14 @@ class StreamServer:
     Feeds encoded frames to RecordingManager Module.
     """
 
-    def __init__(self, camera_name: str, camera_name_norm: str, port: int, target_fps: int):
+    def __init__(self, camera_name: str, camera_name_norm: str, port: int, target_fps: int, stream_quality: int):
         """
         Initializes the StreamServer with required parameters.
         """
         self.camera_name = camera_name
         self.port = port
         self.target_fps = target_fps
+        self.stream_quality = stream_quality
 
         # Stream Thread
         self._stream_thread = threading.Thread(
@@ -77,7 +78,7 @@ class StreamServer:
                  continue
             
             # Encode frame as JPEG
-            ret, jpeg = cv2.imencode('.jpg', frame)
+            ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.stream_quality])
             if not ret:
                 continue
 

@@ -14,8 +14,9 @@ class CameraReader:
     """
 
     def __init__(self, camera_name: str, camera_name_norm: str, camera: str, 
-                 target_fps: int, port: int, show_fps: bool, source_format: str = None,
-                 width: int = None, height: int = None, source_fps: int = None):
+                 target_fps: int, port: int, stream_quality: int, show_fps: bool, 
+                 source_format: str = None, width: int = None, height: int = None, 
+                 source_fps: int = None):
         """
         Initializes the CameraReader with camera parameters.
         """
@@ -46,7 +47,7 @@ class CameraReader:
             self.cap.set(cv2.CAP_PROP_FPS, source_fps)
 
         # Initialize StreamServer Class Module
-        self.stream_server = StreamServer(camera_name, camera_name_norm, port, target_fps)
+        self.stream_server = StreamServer(camera_name, camera_name_norm, port, target_fps, stream_quality)
 
         # Initialize motion frames queue
         # max_motion_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high)

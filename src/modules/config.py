@@ -75,10 +75,10 @@ class Config:
         if not isinstance(log_dir, str):
             raise TypeError("'directory' in Logs config must be a string.")
 
-        if not isinstance(max_size, int) or max_size < 1:
+        if not isinstance(max_size, int) or max_size < 1 or isinstance(max_size, bool):
             raise ValueError("'max_size' must be an integer >= 1.")
 
-        if not isinstance(max_files, int) or max_files < 1:
+        if not isinstance(max_files, int) or max_files < 1 or isinstance(max_files, bool):
             raise ValueError("'max_files' must be an integer >= 1.")
 
         check_create_directory(log_dir)
@@ -103,7 +103,7 @@ class Config:
 
         for cam_id, cam_cfg in cameras.items():
             try:
-                required_fields = ['camera', 'name', 'target_fps', 'port', 'show_fps']
+                required_fields = ['camera', 'name', 'target_fps', 'port', 'stream_quality', 'show_fps']
                 for field in required_fields:
                     if field not in cam_cfg:
                         raise ValueError(f"Missing required field '{field}'")
@@ -117,13 +117,17 @@ class Config:
 
                 for field in ['target_fps', 'port']:
                     value = cam_cfg[field]
-                    if not isinstance(value, int) or value <= 0:
+                    if not isinstance(value, int) or value <= 0 or isinstance(value, bool):
                         raise ValueError(f"'{field}' must be a positive integer")
 
                 port = cam_cfg['port']
                 if port in seen_ports:
                     raise ValueError(f"Duplicate port number: {port}")
                 seen_ports.append(port)
+
+                stream_quality = cam_cfg['stream_quality']
+                if not isinstance(stream_quality, int) or stream_quality < 0 or stream_quality > 100 or isinstance(stream_quality, bool):
+                    raise ValueError(f"'stream_quality' must be an integer between 0 and 100.")
 
                 show_fps = cam_cfg['show_fps']
                 if not isinstance(show_fps, bool):
@@ -153,7 +157,7 @@ class Config:
                     for dim in ['width', 'height']:
                         if dim in cam_cfg:
                             val = cam_cfg[dim]
-                            if not isinstance(val, int) or val <= 0:
+                            if not isinstance(val, int) or val <= 0 or isinstance(val, bool):
                                 raise ValueError(f"'{dim}' must be a positive integer")
                             prop = cv2.CAP_PROP_FRAME_WIDTH if dim == 'width' else cv2.CAP_PROP_FRAME_HEIGHT
                             cap.set(prop, val)
@@ -163,7 +167,7 @@ class Config:
                     
                     if 'source_fps' in cam_cfg:
                         fps = cam_cfg['source_fps']
-                        if not isinstance(fps, int) or fps <= 0:
+                        if not isinstance(fps, int) or fps <= 0 or isinstance(fps, bool):
                             raise ValueError("'source_fps' must be a positive integer")
                         cap.set(cv2.CAP_PROP_FPS, fps)
                         actual_fps = cap.get(cv2.CAP_PROP_FPS)
@@ -210,12 +214,12 @@ class Config:
                 raise TypeError("'directory' must be a string")
             self._recordings['directory'] = rec_dir
 
-            if not isinstance(max_days, int) or max_days < 1:
+            if not isinstance(max_days, int) or max_days < 1 or isinstance(max_days, bool):
                 logger.error("'max_days_to_save' must be an integer >= 1")
                 raise ValueError("'max_days_to_save' must be an integer >= 1")
             self._recordings['max_days_to_save'] = max_days
             
-            if not isinstance(encode_to_h264, int) or encode_to_h264 not in [0,1,2]:
+            if not isinstance(encode_to_h264, int) or encode_to_h264 not in [0,1,2] or isinstance(encode_to_h264, bool):
                 logger.error("'encode_to_h264' must be an integer equal to 0, 1, or 2")
                 raise ValueError("'encode_to_h264' must be an integer equal to 0, 1, or 2")
             self._recordings['encode_to_h264'] = encode_to_h264
@@ -274,7 +278,7 @@ class Config:
                     raise
                 self._recordings['h264_encoder'] = h264_encoder
 
-                if not isinstance(bitrate, int) or bitrate < 1:
+                if not isinstance(bitrate, int) or bitrate < 1 or isinstance(bitrate, bool):
                     logger.error("'bitrate' must be an integer >= 1")
                     raise ValueError("'bitrate' must be an integer >= 1")
                 self._recordings['bitrate'] = bitrate

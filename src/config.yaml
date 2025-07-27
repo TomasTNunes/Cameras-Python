@@ -7,6 +7,7 @@ Cameras:
     name: 'Laptop' # Name of the camera
     target_fps: 15 # Target frames per second for the video stream (set it lower than the camera's maximum FPS)
     port: 50000 # Port for the stream server to stream video
+    stream_quality: 75 # Stream quality from 0 (worse) to 100 (better)
     show_fps: False # Whether to show fps for this camera in frames (True/False)
     # following parameters are not mandatory, if not set OpenCV will use default values
     source_format: 'MJPG' # Video pixel format, e.g. 'MJPG', 'YUYV', ... (has to be supported by camera)
@@ -19,6 +20,7 @@ Cameras:
     name: 'Front Door'
     target_fps: 15
     port: 50001
+    stream_quality: 75
     show_fps: False
   
   # ...

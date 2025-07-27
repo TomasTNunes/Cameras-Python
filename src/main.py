@@ -28,6 +28,7 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             camera=cam_cfg['camera'],
             target_fps=cam_cfg['target_fps'],
             port=cam_cfg['port'],
+            stream_quality=cam_cfg['stream_quality'],
             show_fps=cam_cfg['show_fps'],
             source_format=cam_cfg.get('source_format', None),
             width=cam_cfg.get('width', None),
