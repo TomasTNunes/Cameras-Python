@@ -96,7 +96,7 @@ class StreamServer:
         """
         Run Flask app in a seperate thread.
         """
-        logger.info(f"Starting stream server for {self.camera_name} on port {self.port} (http://{self._get_local_ip()}:{self.port}).")
+        logger.info(f"Starting Flask stream server for {self.camera_name} on port {self.port} (http://{self._get_local_ip()}:{self.port}).")
         self.recording_manager.start()  # Start recording manager thread
         app = Flask(__name__)
 
@@ -134,7 +134,7 @@ class StreamServer:
                     use_reloader=False # Prevent duplicate threads or errors when running Flask in a background thread
                     )
         except Exception as e:
-            logger.error(f'Error running flask app for camera {self.camera_name}: {e}')    
+            logger.error(f'Error running flask app for camera {self.camera_name}: {e}')
     
     def _get_local_ip(self):
         """

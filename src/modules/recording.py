@@ -192,6 +192,8 @@ class RecordingManager:
         if self.encode_to_h264 in [0, 1]: # MJPG .avi for current hour file
             cmd = [
                 'ffmpeg',
+                '-hide_banner', # hide ffmpeg log prints
+                '-loglevel', 'error', # hide ffmpeg log prints except error
                 '-y', # overwrite output file if exists (needed as we are continuously writing to the same file within the same hour)
                 '-f', 'mjpeg', # input format of frames (we are piping JPEG-encoded frames)
                 '-framerate', str(self.target_fps), # input frame rate
@@ -204,6 +206,8 @@ class RecordingManager:
             if self.h264_encoder == 'h264_vaapi':
                 cmd = [
                     'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
                     '-y',
                     '-f', 'mjpeg',
                     '-framerate', str(self.target_fps),
@@ -219,6 +223,8 @@ class RecordingManager:
             elif self.h264_encoder == 'h264_v4l2m2m':
                 cmd = [
                     'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
                     '-y',
                     '-f', 'mjpeg',
                     '-framerate', str(self.target_fps),
@@ -233,6 +239,8 @@ class RecordingManager:
             elif self.h264_encoder == 'h264_qsv':
                 cmd = [
                     'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
                     '-y',
                     '-f', 'mjpeg',
                     '-framerate', str(self.target_fps),
@@ -247,6 +255,8 @@ class RecordingManager:
             else:
                 cmd = [
                     'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
                     '-y',
                     '-f', 'mjpeg',
                     '-framerate', str(self.target_fps),
@@ -284,6 +294,8 @@ class RecordingManager:
         if self.h264_encoder == 'h264_vaapi':
             cmd = [
                 'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'error',
                 '-i', avi_path,
                 '-vaapi_device', '/dev/dri/renderD128',
                 '-vf', 'format=nv12,hwupload',
@@ -295,6 +307,8 @@ class RecordingManager:
         elif self.h264_encoder == 'h264_v4l2m2m':
             cmd = [
                 'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'error',
                 '-i', avi_path,
                 '-pix_fmt', 'yuv420p',
                 '-c:v', self.h264_encoder,
@@ -305,6 +319,8 @@ class RecordingManager:
         elif self.h264_encoder == 'h264_qsv':
             cmd = [
                 'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'error',
                 '-i', avi_path,
                 '-c:v', self.h264_encoder,
                 '-preset', 'veryfast', # h264_qsv does not support ultrafast preset
@@ -315,6 +331,8 @@ class RecordingManager:
         else:
             cmd = [
                 'ffmpeg',
+                '-hide_banner',
+                '-loglevel', 'error',
                 '-i', avi_path,
                 '-c:v', self.h264_encoder,
                 '-preset', 'ultrafast', # to reduce CPU/GPU usage
