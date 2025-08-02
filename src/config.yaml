@@ -1,6 +1,6 @@
 Cameras:
 
-  # Cameras configurations (all parameters in each camera must be defined)
+  # Cameras configurations
 
   camera1: # camera id
     camera: '/dev/video0' # Camera device path
@@ -39,6 +39,29 @@ Recordings:
                            # Software(CPU): libx264, ...
                            # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
   bitrate: 1000 # Bitrate of h264 encoded recording in kbps. (Required if `encode_to_h264` is 1 or 2)
+
+Motion:
+
+  # Motion configurations
+
+  directory: '../data/motion' # Directory where motion recordings will be saved 
+
+  camera1: # camera id (use the same camera id as `Cameras`)
+    enabled: True # Whether to enable detect camera motion (True/False)
+    # following parameters are required only if active is True
+    noise_level: 35 # Threshold for distinguishing between noise and motion at pixel level. (1-255 int)
+    threshold: 1000000 # 
+    # minimum_motion_frames: # number of frames in a row with motion detected to start the motion event (1-... int)
+    # pre_capture: # number of frames to capture before motion is detected (high value leads to high RAM usage) (0-... int)
+    # post_capture: # number of frames to capture after no motion is detected (unlike pre_capture doesn't have high RAM usage) (0-... int)
+    # event_gap: # seconds to end motion event after no motion detected + post_capture (0-... int)
+  
+  camera2:
+    enabled: True
+    noise_level: 35
+    threshold: 1000000
+
+  # ...
 
 Logs:
   save: True # Whether to save logs (True/False)

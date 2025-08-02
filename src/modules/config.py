@@ -22,7 +22,10 @@ class Config:
         self._configure_logger()
         self._cameras = {}
         self._recordings = {}
-        self._validate_config()
+        self._motion = {}
+        self._validate_cameras_config()
+        self._validate_recordings_config()
+        self._validate_motion_config()
     
     @property
     def cameras(self):
@@ -88,9 +91,9 @@ class Config:
         logger.info('----------------------------------------------------------------------')
         logger.info('Logs saving is enabled.')
     
-    def _validate_config(self):
+    def _validate_cameras_config(self):
         """
-        Validate the configuration from cofig file.
+        Validate the Cameras configuration from cofig file.
         """
         # Validate Cameras
         cameras = self.config.get('Cameras', {})
@@ -187,7 +190,11 @@ class Config:
             except Exception as e:
                 logger.error(f"Error in camera with id '{cam_id}': {e}.")
                 logger.warning(f"Camera with id '{cam_id}' will not be loaded.")
-        
+
+    def _validate_recordings_config(self):
+        """
+        Validate the Recordings configuration from cofig file.
+        """
         # Validate Recordings
         rec_cfg = self.config.get('Recordings', {})
         
@@ -210,18 +217,18 @@ class Config:
             encode_to_h264 = rec_cfg.get('encode_to_h264')
 
             if not isinstance(rec_dir, str):
-                logger.error("'directory' must be a string.")
-                raise TypeError("'directory' must be a string")
+                logger.error("'directory' must be a string in Recordings config.")
+                raise TypeError("'directory' must be a string in Recordings config.")
             self._recordings['directory'] = rec_dir
 
             if not isinstance(max_days, int) or max_days < 1 or isinstance(max_days, bool):
-                logger.error("'max_days_to_save' must be an integer >= 1")
-                raise ValueError("'max_days_to_save' must be an integer >= 1")
+                logger.error("'max_days_to_save' must be an integer >= 1 in Recordings config.")
+                raise ValueError("'max_days_to_save' must be an integer >= 1 in Recordings config.")
             self._recordings['max_days_to_save'] = max_days
             
             if not isinstance(encode_to_h264, int) or encode_to_h264 not in [0,1,2] or isinstance(encode_to_h264, bool):
-                logger.error("'encode_to_h264' must be an integer equal to 0, 1, or 2")
-                raise ValueError("'encode_to_h264' must be an integer equal to 0, 1, or 2")
+                logger.error("'encode_to_h264' must be an integer equal to 0, 1, or 2 in Recordings config.")
+                raise ValueError("'encode_to_h264' must be an integer equal to 0, 1, or 2 in Recordings config.")
             self._recordings['encode_to_h264'] = encode_to_h264
             
             if encode_to_h264 in [1, 2]:
@@ -229,8 +236,8 @@ class Config:
                 bitrate = rec_cfg.get('bitrate')
 
                 if not isinstance(h264_encoder, str):
-                    logger.error("'h264_encoder' must be a string.")
-                    raise TypeError("'h264_encoder' must be a string")
+                    logger.error("'h264_encoder' must be a string in Recordings config.")
+                    raise TypeError("'h264_encoder' must be a string in Recordings config.")
                 try:
                     result = subprocess.run(
                         ['ffmpeg', '-hide_banner', '-encoders'],
@@ -279,12 +286,87 @@ class Config:
                 self._recordings['h264_encoder'] = h264_encoder
 
                 if not isinstance(bitrate, int) or bitrate < 1 or isinstance(bitrate, bool):
-                    logger.error("'bitrate' must be an integer >= 1")
-                    raise ValueError("'bitrate' must be an integer >= 1")
+                    logger.error("'bitrate' must be an integer >= 1 in Recordings config.")
+                    raise ValueError("'bitrate' must be an integer >= 1 in Recordings config.")
                 self._recordings['bitrate'] = bitrate
 
             check_create_directory(rec_dir)
             logger.info("Cameras recordings are enabled.")
+    
+    def _validate_motion_config(self):
+        """
+        Validate the Motion configuration from cofig file.
+        """
+        # Validate Motion
+        motion_cfg = self.config.get('Motion', {})
+
+        # Get Motion config keys list
+        motion_keys = list(motion_cfg.keys())
+
+        # Get loaded cameras id list
+        loaded_cameras_id = list(self._cameras.keys())
+
+        # Iterate over loaded cameras id list
+        for camid in loaded_cameras_id:
+            camera_name = self._cameras[camid]['name']
+            if camid not in motion_keys:
+                logger.warning(f"Motion config not found for camera '{camera_name}'. Motion will be disabled for this camera.")
+            else:
+                try:
+                    cam_motion_cfg = motion_cfg.get(camid, {})
+
+                    if 'enabled' not in cam_motion_cfg:
+                        raise ValueError("'enabled' key is missing")
+                    enabled_flag = cam_motion_cfg['enabled']
+                    if not isinstance(enabled_flag, bool):
+                        raise TypeError("'enabled' must be a boolean")
+                    
+                    if not enabled_flag:
+                        logger.warning(f"Motion for camera '{camera_name}' is disabled.")
+                        continue
+
+                    noise_level = cam_motion_cfg.get('noise_level')
+                    threshold = cam_motion_cfg.get('threshold')
+
+                    if not isinstance(noise_level, int) or noise_level < 1 or noise_level > 255 or isinstance(noise_level, bool):
+                        raise ValueError("'noise_level' must be an integer between 1-255")
+                    
+                    if not isinstance(threshold, int) or threshold < 1 or isinstance(threshold, bool):
+                        raise ValueError("'threshold' must be an integer >= 1")
+
+                    self._motion[camid] = cam_motion_cfg
+                    logger.info(f"Motion for camera '{camera_name}' enabled.")
+                except Exception as e:
+                    logger.error(f"Error in motion config for camera '{camera_name}': {e}.")
+                    logger.warning(f"Motion for camera '{camera_name}' will be disabled.")
+                finally:
+                    motion_keys.remove(camid)
+        
+        # Necessary motion configs if at least one motion is active
+        required_fields = ['directory']
+        [motion_keys.remove(k) for k in required_fields if k in motion_keys]
+        if self._motion:
+            for field in required_fields:
+                if field not in motion_cfg:
+                    logger.error(f"Error in motion config: Missing required field '{field}'.")
+                    raise ValueError(f"Error in motion config: Missing required field '{field}'.")
+        
+            # Check required fields
+            motion_dir = motion_cfg.get('directory')
+
+            if not isinstance(motion_dir, str):
+                logger.error("'directory' must be a string in Motion config.")
+                raise TypeError("'directory' must be a string in Motion config.")
+            self._motion['directory'] = motion_dir
+
+            check_create_directory(motion_dir)
+        
+        # Give warning about motion config for cameras id that were not loaded
+        for nonloadcamid in motion_keys:
+            logger.warning(f"Motion config given for non-loaded camera with id '{nonloadcamid}'.")
+
+        
+
     
         
         
