@@ -238,51 +238,7 @@ class Config:
                 if not isinstance(h264_encoder, str):
                     logger.error("'h264_encoder' must be a string in Recordings config.")
                     raise TypeError("'h264_encoder' must be a string in Recordings config.")
-                try:
-                    result = subprocess.run(
-                        ['ffmpeg', '-hide_banner', '-encoders'],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        check=True
-                    )
-                    if not any(h264_encoder in line and '(codec h264)' in line for line in result.stdout.splitlines()):
-                        raise ValueError(f"'{h264_encoder}' h264_encoder is not supported on this machine.")
-                except FileNotFoundError:
-                    logger.error("ffmpeg is not installed or not in PATH.")
-                    raise
-                except Exception as e:
-                    logger.error(f"Error in ffmpeg or 'h264_encoder': {e}")
-                    raise
-                try:
-                    if h264_encoder == 'h264_vaapi':
-                        test_command = [
-                            'ffmpeg',
-                            '-hide_banner',
-                            '-loglevel', 'error',
-                            '-f', 'lavfi',
-                            '-i', 'testsrc=duration=1:size=256x144:rate=5',
-                            '-vaapi_device', '/dev/dri/renderD128',
-                            '-vf', 'format=nv12,hwupload',
-                            '-c:v', h264_encoder,
-                            '-f', 'null',
-                            '-'
-                        ]
-                    else:
-                        test_command = [
-                            'ffmpeg',
-                            '-hide_banner',
-                            '-loglevel', 'error',
-                            '-f', 'lavfi',
-                            '-i', 'testsrc=duration=1:size=128x128:rate=5',
-                            '-c:v', h264_encoder,
-                            '-f', 'null',
-                            '-'
-                        ]
-                    subprocess.run(test_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                except Exception as e:
-                    logger.error(f"Error with h264_encoder '{h264_encoder}': {e}")
-                    raise
+                self._test_h264_encoder(h264_encoder)
                 self._recordings['h264_encoder'] = h264_encoder
 
                 if not isinstance(bitrate, int) or bitrate < 1 or isinstance(bitrate, bool):
@@ -343,7 +299,7 @@ class Config:
                     motion_keys.remove(camid)
         
         # Necessary motion configs if at least one motion is active
-        required_fields = ['directory']
+        required_fields = ['directory', 'max_days_to_save', 'encode_to_h264']
         [motion_keys.remove(k) for k in required_fields if k in motion_keys]
         if self._motion:
             for field in required_fields:
@@ -353,20 +309,95 @@ class Config:
         
             # Check required fields
             motion_dir = motion_cfg.get('directory')
+            max_days = motion_cfg.get('max_days_to_save')
+            encode_to_h264 = motion_cfg.get('encode_to_h264')
 
             if not isinstance(motion_dir, str):
                 logger.error("'directory' must be a string in Motion config.")
                 raise TypeError("'directory' must be a string in Motion config.")
             self._motion['directory'] = motion_dir
 
+            if not isinstance(max_days, int) or max_days < 1 or isinstance(max_days, bool):
+                logger.error("'max_days_to_save' must be an integer >= 1 in Motion config.")
+                raise ValueError("'max_days_to_save' must be an integer >= 1 in Motion config.")
+            self._motion['max_days_to_save'] = max_days
+
+            if not isinstance(encode_to_h264, int) or encode_to_h264 not in [0,1,2] or isinstance(encode_to_h264, bool):
+                logger.error("'encode_to_h264' must be an integer equal to 0, 1, or 2 in Motion config.")
+                raise ValueError("'encode_to_h264' must be an integer equal to 0, 1, or 2 in Motion config.")
+            self._motion['encode_to_h264'] = encode_to_h264
+
+            if encode_to_h264 in [1, 2]:
+                h264_encoder = motion_cfg.get('h264_encoder')
+                bitrate = motion_cfg.get('bitrate')
+                [motion_keys.remove(k) for k in ['h264_encoder', 'bitrate'] if k in motion_keys]
+
+                if not isinstance(h264_encoder, str):
+                    logger.error("'h264_encoder' must be a string in Motion config.")
+                    raise TypeError("'h264_encoder' must be a string in Motion config.")
+                self._test_h264_encoder(h264_encoder)
+                self._motion['h264_encoder'] = h264_encoder
+
+                if not isinstance(bitrate, int) or bitrate < 1 or isinstance(bitrate, bool):
+                    logger.error("'bitrate' must be an integer >= 1 in Motion config.")
+                    raise ValueError("'bitrate' must be an integer >= 1 in Motion config.")
+                self._motion['bitrate'] = bitrate
+
             check_create_directory(motion_dir)
         
         # Give warning about motion config for cameras id that were not loaded
         for nonloadcamid in motion_keys:
             logger.warning(f"Motion config given for non-loaded camera with id '{nonloadcamid}'.")
-
-        
-
     
-        
-        
+    @staticmethod
+    def _test_h264_encoder(h264_encoder: str):
+        """
+        Checks if h264 encoder is supported by the machine and test if it runs.
+        Also indirectly checks if ffmpeg is installed or in PATH.
+        """
+        try:
+            result = subprocess.run(
+                ['ffmpeg', '-hide_banner', '-encoders'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            if not any(h264_encoder in line and '(codec h264)' in line for line in result.stdout.splitlines()):
+                raise ValueError(f"'{h264_encoder}' h264_encoder is not supported on this machine.")
+        except FileNotFoundError:
+            logger.error("ffmpeg is not installed or not in PATH.")
+            raise
+        except Exception as e:
+            logger.error(f"Error in ffmpeg or 'h264_encoder': {e}")
+            raise
+
+        try:
+            if h264_encoder == 'h264_vaapi':
+                test_command = [
+                    'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
+                    '-f', 'lavfi',
+                    '-i', 'testsrc=duration=1:size=256x144:rate=5',
+                    '-vaapi_device', '/dev/dri/renderD128',
+                    '-vf', 'format=nv12,hwupload',
+                    '-c:v', h264_encoder,
+                    '-f', 'null',
+                    '-'
+                ]
+            else:
+                test_command = [
+                    'ffmpeg',
+                    '-hide_banner',
+                    '-loglevel', 'error',
+                    '-f', 'lavfi',
+                    '-i', 'testsrc=duration=1:size=128x128:rate=5',
+                    '-c:v', h264_encoder,
+                    '-f', 'null',
+                    '-'
+                ]
+            subprocess.run(test_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        except Exception as e:
+            logger.error(f"Error with h264_encoder '{h264_encoder}': {e}")
+            raise

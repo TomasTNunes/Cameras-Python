@@ -32,7 +32,7 @@ Recordings:
                                  # (absolute path or relative path to where the script is being run from)
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
   encode_to_h264: 2 # Whether to encode to h264. (0/1/2) 
-                    # 0 -> Save recordings in MJPG .avi (no-encode to h264).
+                    # 0 -> Save recordings in MJPG .avi (no-encode).
                     # 1 -> Save real time recordings in MJPG .avi, and convert to h264 .mp4 after each hour.
                     # 2 -> Save recordings in h264 .mp4 (including real time recording).
   h264_encoder: 'h264_vaapi' # h264 encoder (Required if `encode_to_h264` is 1 or 2)
@@ -44,7 +44,17 @@ Motion:
 
   # Motion configurations
 
+  # following parameters are required only if at least one camera has motion enbaled
   directory: '../data/motion' # Directory where motion recordings will be saved 
+  max_days_to_save: 3 # Maximum number of days to keep the saved motion recordings
+  encode_to_h264: 2 # Whether to encode to h264. (0/1/2) 
+                    # 0 -> Save motion recordings in MJPG .avi (no-encode).
+                    # 1 -> Save real time motion recordings in MJPG .avi, and convert to h264 .mp4 after each hour.
+                    # 2 -> Save motion recordings in h264 .mp4 (including real time recording).
+  h264_encoder: 'h264_vaapi' # h264 encoder (Required if `encode_to_h264` is 1 or 2)
+                           # Software(CPU): libx264, ...
+                           # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
+  bitrate: 1000 # Bitrate of h264 encoded motion recording in kbps. (Required if `encode_to_h264` is 1 or 2)
 
   camera1: # camera id (use the same camera id as `Cameras`)
     enabled: True # Whether to enable detect camera motion (True/False)
