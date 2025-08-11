@@ -1,5 +1,5 @@
 __pycache__/
 data/
 logs/
-test.py
+test/
 *.bkp
