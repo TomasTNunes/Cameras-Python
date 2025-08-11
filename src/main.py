@@ -34,6 +34,9 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             width=cam_cfg.get('width', None),
             height=cam_cfg.get('height', None),
             source_fps=cam_cfg.get('source_fps', None),
+            motion_enabled=CONFIG.motion.get(cam_id, {}).get('enabled', None),
+            noise_level=CONFIG.motion.get(cam_id, {}).get('noise_level', None),
+            threshold=CONFIG.motion.get(cam_id, {}).get('threshold', None),
         )
         CAMERA.start() # Start camera thread
         CAMERAS[cam_id] = CAMERA

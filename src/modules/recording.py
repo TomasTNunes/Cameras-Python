@@ -54,7 +54,7 @@ class RecordingManager:
         self._current_file_path = None
 
         # Initialize recording encoded frames queue 
-        max_rec_queue_size = 100  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (encoded frames are lite)
+        max_rec_queue_size = 100  # Allow some buffer for frames (lower this if RAM usage is too high) (encoded frames are lite)
         self.rec_queue = Queue(maxsize=max_rec_queue_size)
     
     @classmethod
@@ -97,6 +97,8 @@ class RecordingManager:
         if self.save_recording:
             self._recorder_stop_event.set()
             self._recorder_thread.join()
+            self._clear_queue()
+            logger.info(f"Camera '{self.camera_name}' Recording Manager thread stopped.")
     
     def _run(self):
         """
@@ -278,7 +280,7 @@ class RecordingManager:
         if self._ffmpeg_process:
             try:
                 self._ffmpeg_process.stdin.close()
-                self._ffmpeg_process.wait(timeout=5)
+                self._ffmpeg_process.wait(timeout=15)
                 logger.info(f"Camera '{self.camera_name}': FFmpeg process stopped successfully ('{self._current_file_path}').")
             except Exception as e:
                 logger.error(f"Error in camera '{self.camera_name}': Error stopping FFmpeg process ('{self._current_file_path}'): {e}")
@@ -363,6 +365,16 @@ class RecordingManager:
                         logger.info(f"Camera '{self.camera_name}': Deleted old recording '{f}'")
                     except Exception as e:
                         logger.error(f"Error in camera '{self.camera_name}': Failed to delete old file '{f}': {e}")
+    
+    def _clear_queue(self):
+        """
+        Clears queue.
+        """
+        while not self.rec_queue.empty():
+            try:
+                self.rec_queue.get_nowait()
+            except Exception:
+                break
 
 
 

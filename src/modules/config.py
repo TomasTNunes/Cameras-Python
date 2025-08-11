@@ -40,6 +40,13 @@ class Config:
         Returns the read-only recordings configuration.
         """
         return MappingProxyType(self._recordings)
+    
+    @property
+    def motion(self):
+        """
+        Returns the read-only motion configuration.
+        """
+        return MappingProxyType(self._motion)
 
     def _load_config(self):
         """
@@ -301,6 +308,7 @@ class Config:
         # Necessary motion configs if at least one motion is active
         required_fields = ['directory', 'max_days_to_save', 'encode_to_h264']
         [motion_keys.remove(k) for k in required_fields if k in motion_keys]
+        [motion_keys.remove(k) for k in ['h264_encoder', 'bitrate'] if k in motion_keys]
         if self._motion:
             for field in required_fields:
                 if field not in motion_cfg:
@@ -330,7 +338,6 @@ class Config:
             if encode_to_h264 in [1, 2]:
                 h264_encoder = motion_cfg.get('h264_encoder')
                 bitrate = motion_cfg.get('bitrate')
-                [motion_keys.remove(k) for k in ['h264_encoder', 'bitrate'] if k in motion_keys]
 
                 if not isinstance(h264_encoder, str):
                     logger.error("'h264_encoder' must be a string in Motion config.")

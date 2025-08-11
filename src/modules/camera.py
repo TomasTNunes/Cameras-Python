@@ -1,9 +1,10 @@
 import cv2
 import time
 import threading
-from queue import Queue
+from queue import Queue, Empty
 from modules.stream import StreamServer
 from modules.recording import RecordingManager
+from modules.motion import Motion
 from logger_setup import logger
 
 class CameraReader:
@@ -18,7 +19,8 @@ class CameraReader:
     def __init__(self, camera_name: str, camera_name_norm: str, camera: str, 
                  target_fps: int, port: int, stream_quality: int, show_fps: bool, 
                  source_format: str = None, width: int = None, height: int = None, 
-                 source_fps: int = None):
+                 source_fps: int = None, motion_enabled: bool = None,
+                 noise_level: int = None, threshold: int = None):
         """
         Initializes the CameraReader with camera parameters.
         """
@@ -50,8 +52,8 @@ class CameraReader:
             self.cap.set(cv2.CAP_PROP_FPS, source_fps)
         
         # Initialize raw frames queue 
-        max_stream_queue_size = 10  # Allow some buffer for frames for stream (lower this if RAM usage is too high) (raw frames are heavy)
-        self.frame_queue = Queue(maxsize=max_stream_queue_size)
+        max_frame_queue_size = 10  # Allow some buffer for frames (lower this if RAM usage is too high) (raw frames are heavy)
+        self.frame_queue = Queue(maxsize=max_frame_queue_size)
 
         # Frame dispatcher Thread
         self._frame_dispatcher_thread = threading.Thread(
@@ -75,25 +77,37 @@ class CameraReader:
             camera_name_norm=camera_name_norm,
             target_fps=target_fps
         )
+
+        # Initialize Motion Class Module
+        self.motion = Motion(
+            camera_name=camera_name,
+            camera_name_norm=camera_name_norm,
+            enabled=motion_enabled,
+            noise_level=noise_level,
+            threshold=threshold
+        )
     
     def start(self):
         """
-        Starts the camera threads.
+        Starts the camera threads and processes.
         """ 
         self._frame_dispatcher_thread.start() # Start frame dispatcher thread
         self._camera_thread.start() # Start Camera reader thread
         self.stream_server.start() # Start streaming thread
         self.recording_manager.start() # Start recording thread
+        self.motion.start() # Start motion process
     
     def stop(self):
         """
-        Stops the camera reader thread, and child threads (stream, motion, etc).
+        Stops the camera reader thread, and child threads/processes (stream, motion, etc).
         """
-        self.recording_manager.stop() # Stop recording manager thread
-        self._frame_dispatcher_stop_event.set()
         self._camera_stop_event.set()
-        self._frame_dispatcher_thread.join()
         self._camera_thread.join()
+        self._frame_dispatcher_stop_event.set()
+        self._frame_dispatcher_thread.join()
+        self.recording_manager.stop() # Stop recording manager thread
+        self.motion.stop() # Stop motion process
+        self._clear_queue()
         logger.info(f"Camera '{self.camera_name}' thread stopped.")
     
     def _close_camera_reader(self):
@@ -159,15 +173,11 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
                         current_fps = throttle_frame_count / elapsed
                         throttle_frame_count = 0
                         throttle_start_time = now
-
-                    # Draw name, time-stamps and fps into frame
-                    frame = self._draw_frame_info(frame, now, current_fps)
                 else:
-                    # Draw name and time-stamps
-                    frame = self._draw_frame_info(frame, now)
+                    current_fps = None
 
                 # Write raw frame to frame queue
-                self._write(frame)
+                self._write((frame, now, current_fps))
             
             time.sleep(sleep_time)  # Sleep to reduce CPU usage
 
@@ -193,12 +203,18 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         It will serve a tuple (raw, encoded) frames to Motion Class Module.
         """
         while not self._frame_dispatcher_stop_event.is_set():
-            frame = self.frame_queue.get()
+            try:
+                frame, now, current_fps = self.frame_queue.get(timeout=1)
+            except Empty:
+                continue # avoid blocks when exiting
             if frame is None:
-                 continue
+                continue
+            
+            # Draw info on raw frame
+            draw_frame = self._draw_frame_info(frame, now, current_fps)
             
             # Encode frame as JPEG
-            ret, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.stream_quality])
+            ret, jpeg = cv2.imencode('.jpg', draw_frame, [int(cv2.IMWRITE_JPEG_QUALITY), self.stream_quality])
             if not ret:
                 continue
 
@@ -211,12 +227,26 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             # Feed Encoded frame to RecordingManager
             self.recording_manager.write(jpeg_bytes)
 
+            # Feed Encoded frame to Motion
+            self.motion.write(frame, jpeg_bytes)
+    
+    def _clear_queue(self):
+        """
+        Clears queue.
+        """
+        while not self.frame_queue.empty():
+            try:
+                self.frame_queue.get_nowait()
+            except Exception:
+                break
+
     def _draw_frame_info(self, frame: bytes, now: float, fps: float = None):
         """
         Draws the date and time (with milliseconds) in the bottom-right corner,
         and the camera name in the top-left corner, styled like a vigilance system.
         Draws fps in top-right corner, if given.
         """
+        frame = frame.copy()
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.6
         thickness = 2
