@@ -1,6 +1,4 @@
-Cameras:
-
-  # Cameras configurations
+Cameras: # Cameras configurations
 
   camera1: # camera id
     camera: '/dev/video0' # Camera device path
@@ -26,7 +24,7 @@ Cameras:
   # ...
 
 Recordings:  
-  save: False # Whether to save camera recordings (True/False)
+  save: True # Whether to save camera recordings (True/False)
   # following parameters are required only if save is True
   directory: '../data/recording' # Directory where camera recordings will be saved 
                                  # (absolute path or relative path to where the script is being run from)
@@ -40,9 +38,7 @@ Recordings:
                            # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
   bitrate: 1000 # Bitrate of h264 encoded recording in kbps. (Required if `encode_to_h264` is 1 or 2)
 
-Motion:
-
-  # Motion configurations
+Motion: # Motion configurations
 
   # following parameters are required only if at least one camera has motion enbaled
   directory: '../data/motion' # Directory where motion recordings will be saved 
@@ -55,6 +51,8 @@ Motion:
                            # Software(CPU): libx264, ...
                            # Hardware Acceleration: h264_qsv, h264_amf, h264_nvenc, h264_vaapi, h264_omx, h264_v4l2m2m, ...
   bitrate: 1000 # Bitrate of h264 encoded motion recording in kbps. (Required if `encode_to_h264` is 1 or 2)
+
+  # Motion configurations for each camera
 
   camera1: # camera id (use the same camera id as `Cameras`)
     enabled: True # Whether to enable detect camera motion (True/False)

@@ -1,16 +1,17 @@
 from logger_setup import logger
 from modules.config import Config
 from modules.camera import CameraReader
-from modules.recording import RecordingManager
+from modules.recording.stream_recording import StreamRecording
+#from modules.recording.motion_recording import MotionRecording
 
 logger.info('Script Running.')
 
 # Load Config from config file
 CONFIG = Config(config_file='config.yaml')
 
-# Set RecordingManager Class Config
-RecordingManager.setClassConfig(
-    save_recording=CONFIG.recordings['save'],
+# Set StreamRecording Class Config
+StreamRecording.setClassConfig(
+    enabled=CONFIG.recordings['save'],
     output_dir=CONFIG.recordings.get('directory', None),
     max_days_to_save=CONFIG.recordings.get('max_days_to_save', None),
     encode_to_h264=CONFIG.recordings.get('encode_to_h264', None),
@@ -34,7 +35,7 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             width=cam_cfg.get('width', None),
             height=cam_cfg.get('height', None),
             source_fps=cam_cfg.get('source_fps', None),
-            motion_enabled=CONFIG.motion.get(cam_id, {}).get('enabled', None),
+            motion_enabled=CONFIG.motion.get(cam_id, {}).get('enabled', False),
             noise_level=CONFIG.motion.get(cam_id, {}).get('noise_level', None),
             pixel_threshold_pct=CONFIG.motion.get(cam_id, {}).get('pixel_threshold', None),
             object_threshold_pct=CONFIG.motion.get(cam_id, {}).get('object_threshold', None),

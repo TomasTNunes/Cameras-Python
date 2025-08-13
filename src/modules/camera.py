@@ -3,7 +3,7 @@ import time
 import threading
 from queue import Queue, Empty
 from modules.stream import StreamServer
-from modules.recording import RecordingManager
+from modules.recording.stream_recording import StreamRecording
 from modules.motion import Motion
 from logger_setup import logger
 
@@ -73,8 +73,8 @@ class CameraReader:
             target_fps=target_fps
         )
 
-        # Initialize RecordingManager Class Module
-        self.recording_manager = RecordingManager(
+        # Initialize StreamRecording Sub-Class Module
+        self.stream_recording_manager = StreamRecording(
             camera_name=camera_name,
             camera_name_norm=camera_name_norm,
             target_fps=target_fps
@@ -91,7 +91,7 @@ class CameraReader:
             minimum_motion_frames=minimum_motion_frames,
             pre_capture=pre_capture,
             post_capture=post_capture,
-            event_gap_frames=event_gap*target_fps,
+            event_gap_frames=event_gap*target_fps if motion_enabled else None,
         )
     
     def start(self):
@@ -101,7 +101,7 @@ class CameraReader:
         self._frame_dispatcher_thread.start() # Start frame dispatcher thread
         self._camera_thread.start() # Start Camera reader thread
         self.stream_server.start() # Start streaming thread
-        self.recording_manager.start() # Start recording thread
+        self.stream_recording_manager.start() # Start recording thread
         self.motion.start() # Start motion process
     
     def stop(self):
@@ -112,7 +112,7 @@ class CameraReader:
         self._camera_thread.join()
         self._frame_dispatcher_stop_event.set()
         self._frame_dispatcher_thread.join()
-        self.recording_manager.stop() # Stop recording manager thread
+        self.stream_recording_manager.stop() # Stop recording manager thread
         self.motion.stop() # Stop motion process
         self._clear_queue()
         logger.info(f"Camera '{self.camera_name}' thread stopped.")
@@ -207,7 +207,7 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
     def _frame_dispatcher(self):
         """
         Seperate thread loop to read raw frame from queue and encoding it to jpeg.
-        It will then serve encoded frame to Stream Class Module and RecordingManager Class Module.
+        It will then serve encoded frame to Stream Class Module and StreamRecording Sub-Class Module.
         It will serve a tuple (raw, encoded) frames to Motion Class Module.
         """
         while not self._frame_dispatcher_stop_event.is_set():
@@ -232,8 +232,8 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             # Feed Encoded frame to Stream
             self.stream_server.write(jpeg_bytes)
 
-            # Feed Encoded frame to RecordingManager
-            self.recording_manager.write(jpeg_bytes)
+            # Feed Encoded frame to StreamRecording
+            self.stream_recording_manager.write(jpeg_bytes)
 
             # Feed Encoded frame to Motion
             self.motion.write(frame, jpeg_bytes)

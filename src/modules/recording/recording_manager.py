@@ -1,43 +1,36 @@
 import os
-import threading
-import datetime
 import subprocess
+import threading
 import time
 import glob
-from queue import Queue, Empty
+from queue import Queue
 from logger_setup import logger
 from utils import check_create_directory
+
 
 class RecordingManager:
     """
     RecordingManager Module Class.
-    Handles video recording from the camera.
-    Also manages file rotation and cleanup of old recordings.
-    Video Files are saved for every hour.
-    The video for the current hour is saved in .avi encoded in MJPG format or .mp4 encoded in h264.
-    Afer every hour this .avi file can be converted to .mp4 encoded in h264 format, if config given.
+    Handles the recording of video streams from cameras, in sub-class StreamRecording.
+    Handles the recording of motion events, in sub-class MotionRecording.
+    Provides methods rquired for all sub-classes.
     Uses FFmpeg.
     """
 
     # Class Variables for all instances
-    save_recording = False
     output_dir = None
     max_days_to_save = None
     encode_to_h264 = None
     h264_encoder = None
     bitrate = None
-
-    def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int):
+    
+    def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int, max_queue_size: int = 100):
         """
-        Initializes the VideoRecorder with config parameters.
+        Initializes the RecordingManafer with config parameters.
         """
         self.camera_name = camera_name
         self.camera_name_norm = camera_name_norm
         self.target_fps = target_fps
-
-        # If save_recording is disabled, skip initialization
-        if not self.save_recording:
-            return
 
         # Set output directory for this camera
         self.output_dir = os.path.abspath(os.path.join(self.output_dir, self.camera_name_norm))
@@ -49,35 +42,18 @@ class RecordingManager:
             daemon=True
         )
         self._recorder_stop_event = threading.Event()
-        self._current_hour = None
         self._ffmpeg_process = None
         self._current_file_path = None
 
         # Initialize recording encoded frames queue 
-        max_rec_queue_size = 100  # Allow some buffer for frames (lower this if RAM usage is too high) (encoded frames are lite)
-        self.rec_queue = Queue(maxsize=max_rec_queue_size)
-    
-    @classmethod
-    def setClassConfig(cls, save_recording: bool, output_dir: str = None, 
-                       max_days_to_save: int = None, encode_to_h264: int = None,
-                       h264_encoder: str = None, bitrate: int = None):
-        """
-        Set the shared configs across all instances of this class.
-        To be called before any instance is created.
-        """
-        cls.save_recording = save_recording
-        cls.output_dir = output_dir
-        cls.max_days_to_save = max_days_to_save
-        cls.encode_to_h264 = encode_to_h264
-        cls.h264_encoder = h264_encoder
-        cls.bitrate = bitrate
-    
+        self.rec_queue = Queue(maxsize=max_queue_size)
+
     def write(self, frame: bytes):
         """
-        Writes a encoded frame to the recording queue, if save_recording is enabled.
+        Writes a encoded frame to the recording queue, if enabled is enabled.
         If the queue is full, the frame is dropped.
         """
-        if self.save_recording:
+        if self.enabled:
             try:
                 self.rec_queue.put_nowait(frame)
             except:
@@ -85,104 +61,21 @@ class RecordingManager:
     
     def start(self):
         """
-        Starts the recording manager thread, if save_recording is enabled.
+        Starts the recording manager thread, if enabled is enabled.
         """
-        if self.save_recording:
+        if self.enabled:
             self._recorder_thread.start()
-
+    
     def stop(self):
         """
-        Stops the recording manager thread, if save_recording is enabled.
+        Stops the recording manager thread, if enabled is enabled.
         """
-        if self.save_recording:
+        if self.enabled:
             self._recorder_stop_event.set()
             self._recorder_thread.join()
             self._clear_queue()
             logger.info(f"Camera '{self.camera_name}' Recording Manager thread stopped.")
     
-    def _run(self):
-        """
-        To be ran in a separate thread.
-        Reads the encoded frames bytes receives from the stream server thread.
-        Write the encoded frames bytes to the FFmpeg process stdin Pipe.
-        Checks if the file rotation is met.
-        """
-        logger.info(f"Starting recording thread for camera '{self.camera_name}' on '{self.output_dir}'.")
-        while not self._recorder_stop_event.is_set():
-            # Check file rotation condition
-            if self._check_file_rotation():
-                self._rotate_file()
-                threading.Thread(target=self._clean_old_files, daemon=True).start() # Thread to delete old files
-
-            try:
-                frame_bytes = self.rec_queue.get(timeout=1) # Encoded frame in JPEG bytes
-            except Empty:
-                continue
-            
-            if self._ffmpeg_process:
-                try:
-                    self._ffmpeg_process.stdin.write(frame_bytes)
-                except BrokenPipeError:
-                    logger.error(f"Error in camera '{self.camera_name}': FFmpeg process pipe broken")
-                    self._stop_ffmpeg()
-        
-        # Clean up on stop
-        self._stop_ffmpeg()
-    
-    def _check_file_rotation(self):
-        """
-        Checks if the condition for file rotation is met. Returns True if yes.
-        Updates `self._current_hour` to current hour if condition is met.
-        Condition: Rotate file every new hour.
-        """
-        now = datetime.datetime.now()
-        hour = now.replace(minute=0, second=0, microsecond=0)
-        if self._current_hour != hour:
-            self._current_hour = hour
-            return True
-        return False
-    
-    def _check_file_name(self, filename: str):
-        """
-        Checks if filename already exists. If yes, adds a (1) before .avi.
-        If name with (1) already exists it increments to (2), ....
-        """
-        base_name, ext = os.path.splitext(filename)
-        filepath = os.path.join(self.output_dir, filename)
-        index = 1
-        while os.path.exists(filepath):
-            new_filename = f"{base_name}({index}){ext}"
-            filepath = os.path.join(self.output_dir, new_filename)
-            index += 1
-        self._current_file_path = filepath
-
-    def _rotate_file(self):
-        """
-        Rotates the recording file for the current hour.
-        Stops the current FFmpeg process, starts a new one for the next hour.
-        Starts Thread to convert the previous file to h264 in .mp4, if required.
-        """
-        self._stop_ffmpeg()
-
-        # New Filename `name_norm_HHi_HHf_DD_MM_YYYY.ext`
-        previous_file_path = self._current_file_path
-        next_hour = (self._current_hour.hour + 1) % 24
-        if self.encode_to_h264 in [0, 1]:
-            ext = 'avi'
-        else:
-            ext = 'mp4'
-        filename = f"{self.camera_name_norm}_{self._current_hour.hour:02d}_{next_hour:02d}_{self._current_hour.day:02d}_{self._current_hour.month:02d}_{self._current_hour.year}.{ext}"
-        self._check_file_name(filename)
-        logger.info(f"Camera '{self.camera_name}': Rotating recording file for new hour '{self._current_hour}' in '{self._current_file_path}'.")
-
-        # Start new ffmpeg process for current hour file
-        self._start_ffmpeg()
-
-        # If previous file exists and config to encode to h264 (=1), convert it to .mp4 in different thread
-        if self.encode_to_h264 == 1 and previous_file_path and os.path.exists(previous_file_path):
-            # Considering changing daemon to False to ensure conversion completes before exiting app
-            threading.Thread(target=self._convert_to_h264, args=(previous_file_path,), daemon=True).start()
-
     def _start_ffmpeg(self):
         """
         Starts the FFmpeg process to record the video stream.
@@ -375,6 +268,3 @@ class RecordingManager:
                 self.rec_queue.get_nowait()
             except Exception:
                 break
-
-
-
