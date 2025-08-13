@@ -289,13 +289,33 @@ class Config:
                         continue
 
                     noise_level = cam_motion_cfg.get('noise_level')
-                    threshold = cam_motion_cfg.get('threshold')
+                    pixel_threshold = cam_motion_cfg.get('pixel_threshold')
+                    object_threshold = cam_motion_cfg.get('object_threshold')
+                    minimum_motion_frames = cam_motion_cfg.get('minimum_motion_frames')
+                    pre_capture = cam_motion_cfg.get('pre_capture')
+                    post_capture = cam_motion_cfg.get('post_capture')
+                    event_gap = cam_motion_cfg.get('event_gap')
 
                     if not isinstance(noise_level, int) or noise_level < 1 or noise_level > 255 or isinstance(noise_level, bool):
                         raise ValueError("'noise_level' must be an integer between 1-255")
                     
-                    if not isinstance(threshold, int) or threshold < 1 or isinstance(threshold, bool):
-                        raise ValueError("'threshold' must be an integer >= 1")
+                    if not isinstance(pixel_threshold, float) or pixel_threshold <= 0 or pixel_threshold >= 100 or isinstance(pixel_threshold, bool):
+                        raise ValueError("'pixel_threshold' must be a float between 0 and 100 %.")
+                    
+                    if not isinstance(object_threshold, float) or object_threshold <= 0 or object_threshold >= 100 or isinstance(object_threshold, bool):
+                        raise ValueError("'object_threshold' must be a float between 0 and 100 %.")
+                    
+                    if not isinstance(minimum_motion_frames, int) or minimum_motion_frames < 1 or isinstance(minimum_motion_frames, bool):
+                        raise ValueError("'minimum_motion_frames' must be a positive integer.")
+
+                    if not isinstance(pre_capture, int) or pre_capture < 0 or isinstance(pre_capture, bool):
+                        raise ValueError("'pre_capture' must be a non-negative integer.")
+
+                    if not isinstance(post_capture, int) or post_capture < 0 or isinstance(post_capture, bool):
+                        raise ValueError("'post_capture' must be a non-negative integer.")
+
+                    if not isinstance(event_gap, int) or event_gap < 0 or isinstance(event_gap, bool):
+                        raise ValueError("'event_gap' must be a non-negative integer.")
 
                     self._motion[camid] = cam_motion_cfg
                     logger.info(f"Motion for camera '{camera_name}' enabled.")

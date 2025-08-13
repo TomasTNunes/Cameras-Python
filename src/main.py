@@ -36,7 +36,12 @@ for cam_id, cam_cfg in CONFIG.cameras.items():
             source_fps=cam_cfg.get('source_fps', None),
             motion_enabled=CONFIG.motion.get(cam_id, {}).get('enabled', None),
             noise_level=CONFIG.motion.get(cam_id, {}).get('noise_level', None),
-            threshold=CONFIG.motion.get(cam_id, {}).get('threshold', None),
+            pixel_threshold_pct=CONFIG.motion.get(cam_id, {}).get('pixel_threshold', None),
+            object_threshold_pct=CONFIG.motion.get(cam_id, {}).get('object_threshold', None),
+            minimum_motion_frames=CONFIG.motion.get(cam_id, {}).get('minimum_motion_frames', None),
+            pre_capture=CONFIG.motion.get(cam_id, {}).get('pre_capture', None),
+            post_capture=CONFIG.motion.get(cam_id, {}).get('post_capture', None),
+            event_gap=CONFIG.motion.get(cam_id, {}).get('event_gap', None)
         )
         CAMERA.start() # Start camera thread
         CAMERAS[cam_id] = CAMERA

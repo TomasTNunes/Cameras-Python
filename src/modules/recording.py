@@ -188,7 +188,7 @@ class RecordingManager:
         Starts the FFmpeg process to record the video stream.
         It records the frames encoded in MJPG format (recived from stream thread) to an .avi file or
         encodes the frames encoded in MJPG format (recived from stream thread) to h264 and then records to an .mp4 file.
-        FFmpeg Process receives frames from stdin Pipeline.
+        FFmpeg Process receives frames from stdin Pipeline, which is opened here.
         """
         logger.info(f"Camera '{self.camera_name}': Starting FFmpeg process for recording file '{self._current_file_path}'.")
         if self.encode_to_h264 in [0, 1]: # MJPG .avi for current hour file

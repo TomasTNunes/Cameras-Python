@@ -20,7 +20,9 @@ class CameraReader:
                  target_fps: int, port: int, stream_quality: int, show_fps: bool, 
                  source_format: str = None, width: int = None, height: int = None, 
                  source_fps: int = None, motion_enabled: bool = None,
-                 noise_level: int = None, threshold: int = None):
+                 noise_level: int = None, pixel_threshold_pct: float = None,
+                 object_threshold_pct: float = None, minimum_motion_frames: int = None,
+                 pre_capture: int = None, post_capture: int = None, event_gap: int = None):
         """
         Initializes the CameraReader with camera parameters.
         """
@@ -84,7 +86,12 @@ class CameraReader:
             camera_name_norm=camera_name_norm,
             enabled=motion_enabled,
             noise_level=noise_level,
-            threshold=threshold
+            pixel_threshold_pct=pixel_threshold_pct,
+            object_threshold_pct=object_threshold_pct,
+            minimum_motion_frames=minimum_motion_frames,
+            pre_capture=pre_capture,
+            post_capture=post_capture,
+            event_gap_frames=event_gap*target_fps,
         )
     
     def start(self):
@@ -156,6 +163,7 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             ret, frame = self.cap.read()
             if not ret:
                 logger.error(f"Camera '{self.camera_name}' read failed.")
+                self.stop()
                 break
             now = time.time()
             

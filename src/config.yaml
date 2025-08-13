@@ -26,7 +26,7 @@ Cameras:
   # ...
 
 Recordings:  
-  save: True # Whether to save camera recordings (True/False)
+  save: False # Whether to save camera recordings (True/False)
   # following parameters are required only if save is True
   directory: '../data/recording' # Directory where camera recordings will be saved 
                                  # (absolute path or relative path to where the script is being run from)
@@ -59,17 +59,23 @@ Motion:
   camera1: # camera id (use the same camera id as `Cameras`)
     enabled: True # Whether to enable detect camera motion (True/False)
     # following parameters are required only if active is True
-    noise_level: 35 # Threshold for distinguishing between noise and motion at pixel level. (1-255 int)
-    threshold: 1000000 # 
-    # minimum_motion_frames: # number of frames in a row with motion detected to start the motion event (1-... int)
-    # pre_capture: # number of frames to capture before motion is detected (high value leads to high RAM usage) (0-... int)
-    # post_capture: # number of frames to capture after no motion is detected (unlike pre_capture doesn't have high RAM usage) (0-... int)
-    # event_gap: # seconds to end motion event after no motion detected + post_capture (0-... int)
+    noise_level: 35 # Threshold for distinguishing between noise and motion at pixel level (between 1-255).
+    pixel_threshold: 1.5  # Minimum percentage of total frame pixels that must change to trigger motion detection (0–100%).
+    object_threshold: 0.5 # Minimum percentage of the frame’s area that at least one moving object must cover to trigger motion detection (0–100%). Checked only after pixel_threshold is met.
+    minimum_motion_frames: 3 # Number of frames in a row with motion detected to start the motion event. Higher value leads to higher RAM usage.
+    pre_capture: 10 # Number of frames to capture before motion is detected. Higher value leads to higher RAM usage.
+    post_capture: 15 # Number of frames to capture after no motion is detected.
+    event_gap: 30 # Seconds to end motion event after no motion detected. Starts counting after the last frame of post_capture.
   
   camera2:
     enabled: True
     noise_level: 35
-    threshold: 1000000
+    pixel_threshold: 1.5
+    object_threshold: 0.5
+    minimum_motion_frames: 3
+    pre_capture: 10
+    post_capture: 15
+    event_gap: 30
 
   # ...
 
