@@ -3,12 +3,13 @@ import threading
 import numpy as np
 from queue import Queue, Empty
 from collections import deque
+from modules.recording.motion_recording import MotionRecording
 from logger_setup import logger
 
 class Motion:
     """
     Motion Module Class.
-    Detect motion events from camera and records it in h264 encoded mp4.
+    Detect motion events from camera and records it using MotionRecording Sub-Class.
 
     Motion Event:
         - Starts after motion is detected `minimum_motion_frames` in a row.
@@ -23,7 +24,7 @@ class Motion:
               however due to several issues it will be ran, for now, only in another thread.
     """
 
-    def __init__(self, camera_name: str, camera_name_norm: str, enabled: bool,
+    def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int, enabled: bool,
                  noise_level: int = None, pixel_threshold_pct: float = None,
                  object_threshold_pct: float = None, minimum_motion_frames: int = None,
                  pre_capture: int = None, post_capture: int = None, event_gap_frames: int = None):
@@ -40,6 +41,10 @@ class Motion:
         self.pre_capture = pre_capture
         self.post_capture = post_capture
         self.event_gap_frames = event_gap_frames
+
+        # If motion is disabled, skip initialization
+        if not self.enabled:
+            return
 
         # Processed Frame Resolution variables
         self._max_w = 640 # max width for processed frame
@@ -60,23 +65,32 @@ class Motion:
         )
         self._motion_process_stop_event = threading.Event()
 
-    def write(self, raw_frame: bytes, encoded_frame: bytes):
+        # Initialize MotionRecording Sub-Class Module
+        self.motion_recording_manager = MotionRecording(
+            camera_name=camera_name,
+            camera_name_norm=camera_name_norm,
+            target_fps=target_fps,
+            frames_buffer=pre_capture+post_capture,
+        )
+
+    def write(self, raw_frame: bytes, encoded_frame: bytes, time: float):
         """
-        Writes a tupple (raw, encoded) frame to the motion queue, if motion is enabled.
+        Writes a tupple (raw frame, encoded frame, time) to the motion queue, if motion is enabled.
         If the queue is full, the frame is dropped.
         """
         if self.enabled:
             try:
-                self.motion_queue.put_nowait((raw_frame, encoded_frame))
+                self.motion_queue.put_nowait((raw_frame, encoded_frame, time))
             except:
                 pass  # Drop frame if queue is full 
 
     def start(self):
         """
-        Starts the motion process, if motion is enabled.
+        Starts the motion process and MotionRecording thread, if motion is enabled.
         """
         if self.enabled:
             self._motion_process.start()
+            self.motion_recording_manager.start()
 
     def stop(self):
         """
@@ -85,6 +99,7 @@ class Motion:
         if self.enabled:
             self._motion_process_stop_event.set()
             self._motion_process.join()
+            self.motion_recording_manager.stop()
             self._clear_queue()
             logger.info(f"Camera '{self.camera_name}' Motion process stopped.")
     
@@ -116,9 +131,9 @@ class Motion:
 
         while not self._motion_process_stop_event.is_set():
 
-            # Get raw and encoded frame from queue
+            # Get raw and encoded frame and time from queue
             try:
-                raw_frame, encoded_frame = self.motion_queue.get(timeout=1)
+                raw_frame, encoded_frame, frame_time = self.motion_queue.get(timeout=1)
             except Empty:
                 continue # avoid blocks when exiting
             if raw_frame is None:
@@ -148,7 +163,7 @@ class Motion:
                     idle_frame_count = 0
 
                     # Add encoded frame to queue for recording
-                    ###
+                    self.motion_recording_manager.write(encoded_frame)
                 
                 # If not in True Motion
                 else:
@@ -172,16 +187,15 @@ class Motion:
 
                         # If not in event, Start a new event
                         if not in_event:
-                            logger.info(f"Starting Motion Event in camera '{self.camera_name}'.")
                             in_event = True
-                            # Call function inc recordingmanager to sart new even (create new pipeline for new file)
-                            ###
+                            # Start Event in MotionRecording
+                            self.motion_recording_manager.start_event(frame_time)
                         
                         logger.info(f"True Motion Started in camera '{self.camera_name}'.")
 
-                        # Dump pre_capture buffer and minimum_motion_frames buffer to queue for recording
-                        # Clear minimum_motion_frames buffer and pre_capture buffer
-                        ###
+                        # Dump frame buffers to RecordingManager, also clearing them
+                        self._dump_frames_buffer(pre_capture_buffer)
+                        self._dump_frames_buffer(minimum_motion_frames_buffer)
             
             # If No Motion is Detected
             else:
@@ -201,11 +215,11 @@ class Motion:
                         logger.info(f"True Motion Ended in camera '{self.camera_name}'.")
                         # Add encoded frame to pre_capture buffer
                         pre_capture_buffer.append(encoded_frame)
+                    
+                    # If in Post Capture
                     else:
-                        # Capture post_capture frames
                         # Add encoded frame to queue for recording
-                        ###
-                        pass
+                        self.motion_recording_manager.write(encoded_frame)
                 
                 # If not in True Motion
                 else:
@@ -214,12 +228,9 @@ class Motion:
                 
                 # End event if idle_frame_count exceeds post_capture + event_gap and not in True Motion
                 if not in_true_motion and in_event and idle_frame_count > end_event_frames:
-                    logger.info(f"Ending Motion Event in camera '{self.camera_name}'.")
                     in_event = False
-                    # Close recording pipeline in RecordingManager
-                    ###
-            cv2.imshow(self.camera_name_norm, dilated_diff)
-            cv2.waitKey(1)
+                    # End Event in MotionRecording
+                    self.motion_recording_manager.stop_event()
 
             # Update Previous Frame
             previous_frame = processed_frame
@@ -286,8 +297,11 @@ class Motion:
                 return True
         return False
 
-    # To avoid encode two time maybe try to find solution to communaicate this module with recordingManager 
-    # so I can record frames directly encoded from there
-    # I need to make it someway that i can match frame from this thread with frame from that thread.
-
-    # Do i need to create another recording manager?
+    def _dump_frames_buffer(self, frame_buffer: deque):
+        """
+        Dumps frame buffer queue to MotionRecording Manager.
+        Clears frame buffer queue.
+        """
+        for f in frame_buffer:
+            self.motion_recording_manager.write(f)
+        frame_buffer.clear()

@@ -6,6 +6,7 @@ from modules.stream import StreamServer
 from modules.recording.stream_recording import StreamRecording
 from modules.motion import Motion
 from logger_setup import logger
+from utils import convert_time_to_datetime
 
 class CameraReader:
     """
@@ -84,6 +85,7 @@ class CameraReader:
         self.motion = Motion(
             camera_name=camera_name,
             camera_name_norm=camera_name_norm,
+            target_fps=target_fps,
             enabled=motion_enabled,
             noise_level=noise_level,
             pixel_threshold_pct=pixel_threshold_pct,
@@ -235,8 +237,8 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
             # Feed Encoded frame to StreamRecording
             self.stream_recording_manager.write(jpeg_bytes)
 
-            # Feed Encoded frame to Motion
-            self.motion.write(frame, jpeg_bytes)
+            # Feed Raw and Encoded frame and frame time to Motion
+            self.motion.write(frame, jpeg_bytes, now)
     
     def _clear_queue(self):
         """
@@ -263,12 +265,8 @@ Height: {int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))})")
         text_color = (0, 255, 0)  # bright green
         shadow_color = (0, 0, 0)  # black shadow
         
-        # Get current time with milliseconds
-        local_time = time.localtime(now)
-        millis = int((now - int(now)) * 1000)
-        
-        date_str = time.strftime("%d-%m-%Y", local_time)
-        time_str = time.strftime(f"%H:%M:%S.{millis:03d}", local_time)
+        # Get Date and Time strings
+        date_str, time_str = convert_time_to_datetime(now)
         
         # Get text sizes
         (date_w, date_h), _ = cv2.getTextSize(date_str, font, font_scale, thickness)

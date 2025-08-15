@@ -18,6 +18,7 @@ class RecordingManager:
     """
 
     # Class Variables for all instances
+    enabled = False
     output_dir = None
     max_days_to_save = None
     encode_to_h264 = None
@@ -47,6 +48,21 @@ class RecordingManager:
 
         # Initialize recording encoded frames queue 
         self.rec_queue = Queue(maxsize=max_queue_size)
+    
+    @classmethod
+    def setClassConfig(cls, enabled: bool, output_dir: str = None, 
+                       max_days_to_save: int = None, encode_to_h264: int = None,
+                       h264_encoder: str = None, bitrate: int = None):
+        """
+        Set the shared configs across all instances of this sub-class.
+        To be called before any instance is created.
+        """
+        cls.enabled = enabled
+        cls.output_dir = output_dir
+        cls.max_days_to_save = max_days_to_save
+        cls.encode_to_h264 = encode_to_h264
+        cls.h264_encoder = h264_encoder
+        cls.bitrate = bitrate
 
     def write(self, frame: bytes):
         """
@@ -74,7 +90,6 @@ class RecordingManager:
             self._recorder_stop_event.set()
             self._recorder_thread.join()
             self._clear_queue()
-            logger.info(f"Camera '{self.camera_name}' Recording Manager thread stopped.")
     
     def _start_ffmpeg(self):
         """
@@ -173,7 +188,7 @@ class RecordingManager:
         if self._ffmpeg_process:
             try:
                 self._ffmpeg_process.stdin.close()
-                self._ffmpeg_process.wait(timeout=15)
+                self._ffmpeg_process.wait(timeout=5)
                 logger.info(f"Camera '{self.camera_name}': FFmpeg process stopped successfully ('{self._current_file_path}').")
             except Exception as e:
                 logger.error(f"Error in camera '{self.camera_name}': Error stopping FFmpeg process ('{self._current_file_path}'): {e}")
@@ -242,6 +257,21 @@ class RecordingManager:
             logger.info(f"Camera '{self.camera_name}': Removed avi file '{avi_path}'")
         except Exception as e:
             logger.error(f"Error in camera '{self.camera_name}': Failed converting {avi_path} to mp4: {e}")
+    
+    def _check_file_name(self, filename: str):
+        """
+        Checks if filename already exists. If yes, adds a (1) before .ext.
+        If name with (1) already exists it increments to (2), ....
+        Sets the `self._current_file_path` to the new file path.
+        """
+        base_name, ext = os.path.splitext(filename)
+        filepath = os.path.join(self.output_dir, filename)
+        index = 1
+        while os.path.exists(filepath):
+            new_filename = f"{base_name}({index}){ext}"
+            filepath = os.path.join(self.output_dir, new_filename)
+            index += 1
+        self._current_file_path = filepath
 
     def _clean_old_files(self):
         """

@@ -2,14 +2,14 @@ from logger_setup import logger
 from modules.config import Config
 from modules.camera import CameraReader
 from modules.recording.stream_recording import StreamRecording
-#from modules.recording.motion_recording import MotionRecording
+from modules.recording.motion_recording import MotionRecording
 
 logger.info('Script Running.')
 
 # Load Config from config file
 CONFIG = Config(config_file='config.yaml')
 
-# Set StreamRecording Class Config
+# Set StreamRecording Sub-Class Config
 StreamRecording.setClassConfig(
     enabled=CONFIG.recordings['save'],
     output_dir=CONFIG.recordings.get('directory', None),
@@ -17,6 +17,16 @@ StreamRecording.setClassConfig(
     encode_to_h264=CONFIG.recordings.get('encode_to_h264', None),
     h264_encoder=CONFIG.recordings.get('h264_encoder', None),
     bitrate=CONFIG.recordings.get('bitrate', None)
+)
+
+# Set MotionRecording Sub-Class Config
+MotionRecording.setClassConfig(
+    enabled=True, # True because this instance is only create 9if motion for the respective camera is enabled.
+    output_dir=CONFIG.motion.get('directory', None),
+    max_days_to_save=CONFIG.motion.get('max_days_to_save', None),
+    encode_to_h264=CONFIG.motion.get('encode_to_h264', None),
+    h264_encoder=CONFIG.motion.get('h264_encoder', None),
+    bitrate=CONFIG.motion.get('bitrate', None)
 )
 
 # Initialize Cameras from Config

@@ -61,7 +61,7 @@ Motion: # Motion configurations
     pixel_threshold: 1.5  # Minimum percentage of total frame pixels that must change to trigger motion detection (0–100%).
     object_threshold: 0.5 # Minimum percentage of the frame’s area that at least one moving object must cover to trigger motion detection (0–100%). Checked only after pixel_threshold is met.
     minimum_motion_frames: 3 # Number of frames in a row with motion detected to start the motion event. Higher value leads to higher RAM usage.
-    pre_capture: 10 # Number of frames to capture before motion is detected. Higher value leads to higher RAM usage.
+    pre_capture: 15 # Number of frames to capture before motion is detected. Higher value leads to higher RAM usage.
     post_capture: 15 # Number of frames to capture after no motion is detected.
     event_gap: 30 # Seconds to end motion event after no motion detected. Starts counting after the last frame of post_capture.
   

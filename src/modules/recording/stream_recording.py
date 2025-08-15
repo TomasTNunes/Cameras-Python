@@ -15,9 +15,6 @@ class StreamRecording(RecordingManager):
     Afer every hour this .avi file can be converted to .mp4 encoded in h264 format, if config given.
     """
 
-    # Class Variables for all instances
-    enabled = False
-
     def __init__(self, camera_name: str, camera_name_norm: str, target_fps: int):
         """
         Initializes the StreamRecording with config parameters.
@@ -32,23 +29,17 @@ class StreamRecording(RecordingManager):
                          target_fps=target_fps,
         )
 
-        # Recording Manager Thread Parameters
+        # StreamRecording Manager Thread Parameters
         self._current_hour = None
-
-    @classmethod
-    def setClassConfig(cls, enabled: bool, output_dir: str = None, 
-                       max_days_to_save: int = None, encode_to_h264: int = None,
-                       h264_encoder: str = None, bitrate: int = None):
+    
+    def stop(self):
         """
-        Set the shared configs across all instances of this sub-class.
-        To be called before any instance is created.
+        Stops the StreamRecording manager thread, if enabled is enabled.
         """
-        cls.enabled = enabled
-        cls.output_dir = output_dir
-        cls.max_days_to_save = max_days_to_save
-        cls.encode_to_h264 = encode_to_h264
-        cls.h264_encoder = h264_encoder
-        cls.bitrate = bitrate
+        # Call parent stop method
+        super().stop()
+        if self.enabled:
+            logger.info(f"Camera '{self.camera_name}' StreamRecording Manager thread stopped.")
     
     def _run(self):
         """
@@ -57,7 +48,7 @@ class StreamRecording(RecordingManager):
         Write the encoded frames bytes to the FFmpeg process stdin Pipe.
         Checks if the file rotation is met.
         """
-        logger.info(f"Starting recording thread for camera '{self.camera_name}' on '{self.output_dir}'.")
+        logger.info(f"Starting StreamRecording thread for camera '{self.camera_name}' on '{self.output_dir}'.")
         while not self._recorder_stop_event.is_set():
 
             # Check file rotation condition
@@ -93,21 +84,6 @@ class StreamRecording(RecordingManager):
             self._current_hour = hour
             return True
         return False
-    
-    def _check_file_name(self, filename: str):
-        """
-        Checks if filename already exists. If yes, adds a (1) before .avi.
-        If name with (1) already exists it increments to (2), ....
-        Sets the `self._current_file_path` to the new file path.
-        """
-        base_name, ext = os.path.splitext(filename)
-        filepath = os.path.join(self.output_dir, filename)
-        index = 1
-        while os.path.exists(filepath):
-            new_filename = f"{base_name}({index}){ext}"
-            filepath = os.path.join(self.output_dir, new_filename)
-            index += 1
-        self._current_file_path = filepath
 
     def _rotate_file(self):
         """
@@ -124,7 +100,7 @@ class StreamRecording(RecordingManager):
             ext = 'avi'
         else:
             ext = 'mp4'
-        filename = f"{self.camera_name_norm}_{self._current_hour.hour:02d}_{next_hour:02d}_{self._current_hour.day:02d}_{self._current_hour.month:02d}_{self._current_hour.year}.{ext}"
+        filename = f"{self.camera_name_norm}_{self._current_hour.hour:02d}-{next_hour:02d}_{self._current_hour.day:02d}-{self._current_hour.month:02d}-{self._current_hour.year}.{ext}"
         self._check_file_name(filename)
         logger.info(f"Camera '{self.camera_name}': Rotating recording file for new hour '{self._current_hour}' in '{self._current_file_path}'.")
 
