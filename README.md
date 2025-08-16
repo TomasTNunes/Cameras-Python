@@ -24,7 +24,7 @@ A multi-camera video streaming and recording system in Python, supporting real-t
 
 ## Quick Start
 
-1. **Install Python**
+1. **Install Python and FFmpeg**
 
    Install Python and FFmpeg on your system. Make sure FFmpeg is in PATH.
    - This project was developed and tested using Python 3.12.11, but it may also work with previous or later versions.
@@ -41,6 +41,7 @@ A multi-camera video streaming and recording system in Python, supporting real-t
 3. **Edit the configuration**
 
    Edit `src/config.yaml` to set up your cameras, recording, motion detection, and logging preferences.
+   See the [Configuration](#configuration) section below for detailed guidance on all available options.
 
 4. **Run the application**
 
@@ -51,7 +52,7 @@ A multi-camera video streaming and recording system in Python, supporting real-t
 
 5. **Access camera streams**
 
-   Open your browser and go to `http://<your-ip>:<port>` for each camera (see `port` in your config).
+   Open your browser and go to `http://<your-local-ip>:<port>` for each camera (see `port` in your config).
 
 6. **Stop the application**
 
