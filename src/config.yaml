@@ -1,3 +1,7 @@
+# CONFIGURATION FILE
+# This file must be in the directory from which the script is being run.
+# All relative paths are relative to this files location.
+
 Cameras: # Cameras configurations
 
   camera1: # camera id
@@ -27,7 +31,6 @@ Recordings:
   save: True # Whether to save camera recordings (True/False)
   # following parameters are required only if save is True
   directory: '../data/recording' # Directory where camera recordings will be saved 
-                                 # (absolute path or relative path to where the script is being run from)
   max_days_to_save: 3 # Maximum number of days to keep the saved recordings
   encode_to_h264: 2 # Whether to encode to h264. (0/1/2) 
                     # 0 -> Save recordings in MJPG .avi (no-encode).
@@ -81,6 +84,5 @@ Logs:
   save: True # Whether to save logs (True/False)
   # following parameters are required only if save is True
   directory: '../logs' # Directory where logs will be saved
-                       # (absolute path or relative path to where the script is being run from)
   max_size: 1024 # Maximum size of each log file in MB
   max_files: 2 # Maximum number of log files to keep
