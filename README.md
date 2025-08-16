@@ -1,4 +1,4 @@
-# Cameras-Python
+# Sentinel-Python
 
 A multi-camera video streaming and recording system in Python, supporting real-time streaming via Flask, continuous and motion-triggered recording, and flexible configuration via YAML. Designed to be efficient and lightweight for low-power devices such as the Raspberry Pi Zero 2W
 
